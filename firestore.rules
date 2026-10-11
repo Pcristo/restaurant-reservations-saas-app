@@ -1,0 +1,245 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isHardcodedAdmin() {
+      return isAuthenticated() && 
+        request.auth.token.email != null && 
+        (
+          request.auth.token.email == "pcristo35@gmail.com" ||
+          request.auth.token.email.lower() == "pcristo35@gmail.com"
+        );
+    }
+
+    function hasUserDoc() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Only platform owner or users specifically assigned super_admin in Firestore (strictly non-tenant accounts)
+    function isSuperAdmin() {
+      return isHardcodedAdmin() || (
+        hasUserDoc() && 
+        (getUserData().role == 'super_admin' || getUserData().role == 'superadmin') &&
+        getUserData().status != 'suspended' &&
+        getUserData().status != 'inactive' &&
+        (!('restaurantId' in getUserData()) || getUserData().restaurantId == null)
+      );
+    }
+
+    function isRestaurantStaff(restaurantId) {
+      return isSuperAdmin() || (
+        hasUserDoc() && 
+        (
+          getUserData().role == 'staff' || 
+          getUserData().role == 'admin' || 
+          getUserData().role == 'restaurant_owner' || 
+          getUserData().role == 'restaurant_manager' || 
+          getUserData().role == 'restaurant_staff'
+        ) &&
+        getUserData().status != 'suspended' &&
+        getUserData().status != 'inactive' &&
+        restaurantId != null &&
+        (
+          getUserData().restaurantId == restaurantId || 
+          ((getUserData().restaurantId == 'main' || getUserData().restaurantId == 'default-restaurant') && (restaurantId == 'main' || restaurantId == 'default-restaurant')) ||
+          (getUserData().restaurantIds != null && restaurantId in getUserData().restaurantIds)
+        )
+      );
+    }
+
+    function isRestaurantAdmin(restaurantId) {
+      return isSuperAdmin() || (
+        hasUserDoc() && 
+        (
+          getUserData().role == 'admin' || 
+          getUserData().role == 'restaurant_owner' || 
+          getUserData().role == 'restaurant_manager'
+        ) &&
+        getUserData().status != 'suspended' &&
+        getUserData().status != 'inactive' &&
+        restaurantId != null &&
+        (
+          getUserData().restaurantId == restaurantId || 
+          ((getUserData().restaurantId == 'main' || getUserData().restaurantId == 'default-restaurant') && (restaurantId == 'main' || restaurantId == 'default-restaurant')) ||
+          (getUserData().restaurantIds != null && restaurantId in getUserData().restaurantIds)
+        )
+      );
+    }
+
+    function isStaff() {
+      return isSuperAdmin() || (
+        hasUserDoc() && (
+          getUserData().role == 'staff' || 
+          getUserData().role == 'admin' || 
+          getUserData().role == 'restaurant_owner' || 
+          getUserData().role == 'restaurant_manager' || 
+          getUserData().role == 'restaurant_staff'
+        ) &&
+        getUserData().status != 'suspended' &&
+        getUserData().status != 'inactive'
+      );
+    }
+
+    function isAdmin() {
+      return isSuperAdmin() || (
+        hasUserDoc() && (
+          getUserData().role == 'admin' || 
+          getUserData().role == 'restaurant_owner' || 
+          getUserData().role == 'restaurant_manager'
+        ) &&
+        getUserData().status != 'suspended' &&
+        getUserData().status != 'inactive'
+      );
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    // Multi-tenant Restaurants
+    match /restaurants/{restaurantId} {
+      allow read: if true; // Public domain & subdomain resolution, branding fetch
+      allow create: if isSuperAdmin(); // Only super admins can create restaurant tenants
+      allow update: if isSuperAdmin() || isRestaurantAdmin(restaurantId);
+      allow delete: if isSuperAdmin();
+    }
+
+    // Restaurant Settings (main or restaurant-specific document)
+    match /settings/{settingId} {
+      allow read: if true; // Public booking needs opening hours and branding
+      allow create: if isSuperAdmin() || isRestaurantAdmin(settingId);
+      allow update: if isSuperAdmin() || isRestaurantAdmin(settingId);
+      allow delete: if isSuperAdmin();
+    }
+
+    // Tables floor plan
+    match /tables/{tableId} {
+      allow read: if true; // Needed for party size matching during booking
+      allow create, update: if isSuperAdmin() || (request.resource.data.restaurantId != null && isRestaurantAdmin(request.resource.data.restaurantId));
+      allow delete: if isSuperAdmin() || (resource.data.restaurantId != null && isRestaurantAdmin(resource.data.restaurantId));
+    }
+
+    // Areas in restaurant
+    match /areas/{areaId} {
+      allow read: if true;
+      allow create, update: if isSuperAdmin() || (request.resource.data.restaurantId != null && isRestaurantAdmin(request.resource.data.restaurantId));
+      allow delete: if isSuperAdmin() || (resource.data.restaurantId != null && isRestaurantAdmin(resource.data.restaurantId));
+    }
+
+    // Reservations (Strict tenant isolation for staff & customers)
+    match /reservations/{reservationId} {
+      allow read: if true; // Public guests and authenticated customers need to check availability to book
+      allow create: if true; // Public can book reservations
+      allow update: if isSuperAdmin() || 
+                       (resource.data.restaurantId != null && isRestaurantStaff(resource.data.restaurantId)) ||
+                       (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'cancellationReason', 'cancelledAt']));
+      allow delete: if isSuperAdmin() || 
+                       (resource.data.restaurantId != null && isRestaurantAdmin(resource.data.restaurantId));
+    }
+
+    // Customers directory (Strict tenant isolation)
+    match /customers/{customerId} {
+      allow read: if true; // Needed for guest preference check during booking
+      allow create: if true; // Allow guest/public booking customer record creation
+      allow update: if isSuperAdmin() || 
+                       (resource.data.restaurantId == null && isStaff()) ||
+                       (resource.data.restaurantId != null && isRestaurantStaff(resource.data.restaurantId)) || 
+                       (isAuthenticated() && (request.auth.uid == customerId || resource.data.authUid == request.auth.uid || resource.data.email == request.auth.token.email));
+      allow delete: if isSuperAdmin() || 
+                       (resource.data.restaurantId != null && isRestaurantAdmin(resource.data.restaurantId));
+    }
+
+    // Users and Staff accounts (Strict tenant isolation)
+    match /users/{userId} {
+      allow read: if isSuperAdmin() || 
+                     (resource.data.restaurantId != null && isRestaurantStaff(resource.data.restaurantId)) || 
+                     (isAuthenticated() && (
+                       request.auth.uid == userId || 
+                       resource.data.authUid == request.auth.uid ||
+                       (request.auth.token.email != null && (
+                         resource.data.email == request.auth.token.email ||
+                         resource.data.email == request.auth.token.email.lower()
+                       ))
+                     ));
+      allow create: if isSuperAdmin() || 
+                       (isAuthenticated() && (request.auth.uid == userId || request.resource.data.authUid == request.auth.uid) && request.resource.data.role != 'super_admin' && request.resource.data.role != 'superadmin') ||
+                       (request.resource.data.restaurantId != null && isRestaurantAdmin(request.resource.data.restaurantId) && request.resource.data.role != 'super_admin' && request.resource.data.role != 'superadmin');
+      allow update: if isSuperAdmin() || 
+                       (resource.data.restaurantId != null && isRestaurantAdmin(resource.data.restaurantId) && request.resource.data.role != 'super_admin' && request.resource.data.role != 'superadmin' && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'restaurantId', 'restaurantIds'])) || 
+                       (resource.data.restaurantId != null && isRestaurantStaff(resource.data.restaurantId) && resource.data.role == 'customer' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])) || 
+                       (isAuthenticated() && (request.auth.uid == userId || resource.data.authUid == request.auth.uid) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'restaurantId', 'restaurantIds']));
+      allow delete: if isSuperAdmin() || (resource.data.restaurantId != null && isRestaurantAdmin(resource.data.restaurantId));
+    }
+
+    // Phone verifications
+    match /phone_verifications/{phone} {
+      allow get: if true;
+      allow create, update: if true;
+    }
+
+    // Custom Domains directory
+    match /domains/{domainId} {
+      allow read: if true; // Custom domain hostname lookup
+      allow create, delete: if isSuperAdmin() || (request.resource.data.restaurantId != null && isRestaurantAdmin(request.resource.data.restaurantId));
+      allow update: if isSuperAdmin() || (resource.data.restaurantId != null && isRestaurantAdmin(resource.data.restaurantId));
+    }
+
+    match /restaurant_domains/{domainId} {
+      allow read: if true;
+      allow create, delete: if isSuperAdmin() || (request.resource.data.restaurantId != null && isRestaurantAdmin(request.resource.data.restaurantId));
+      allow update: if isSuperAdmin() || (resource.data.restaurantId != null && isRestaurantAdmin(resource.data.restaurantId));
+    }
+
+    // Plans & Subscriptions
+    match /plans/{planId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    // SaaS Audit Logs (Tenant-isolated)
+    match /audit_logs/{logId} {
+      allow read: if isSuperAdmin() || (resource.data.restaurantId != null && isRestaurantAdmin(resource.data.restaurantId));
+      allow create: if true;
+      allow update, delete: if false; // Immutable audit log
+    }
+
+    // Platform SaaS Settings
+    match /platform_settings/{settingId} {
+      allow read, write: if isSuperAdmin();
+    }
+
+    // Super Admin Invitations
+    match /super_admin_invitations/{inviteId} {
+      allow read: if isSuperAdmin() || (
+        isAuthenticated() && 
+        request.auth.token.email != null && 
+        (resource.data.email == request.auth.token.email.lower() || resource.data.email == request.auth.token.email)
+      );
+      allow get: if true;
+      allow write: if isSuperAdmin();
+      allow update: if isSuperAdmin() || (
+        isAuthenticated() && 
+        request.auth.token.email != null && 
+        (resource.data.email == request.auth.token.email.lower() || resource.data.email == request.auth.token.email) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acceptedAt', 'declinedAt'])
+      );
+    }
+
+    // Smart alerts
+    match /smart_alerts/{alertId} {
+      allow read, update, delete: if isSuperAdmin() || (resource.data.restaurantId != null && isRestaurantStaff(resource.data.restaurantId));
+      allow create: if isSuperAdmin() || (request.resource.data.restaurantId != null && isRestaurantStaff(request.resource.data.restaurantId));
+    }
+  }
+}

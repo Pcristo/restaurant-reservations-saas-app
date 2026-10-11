@@ -1,0 +1,6 @@
+{
+  "name": "DineMaster Pro",
+  "description": "Multi-tenant restaurant reservation and table management SaaS platform with custom domains, tenant branding, and super-admin management suite.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
