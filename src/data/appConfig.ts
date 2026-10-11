@@ -8,4 +8,5 @@ export const APP_CONFIG = {
   address: '123 Example Street, Dublin, D01 XXXX, Ireland',
   phone: '+353 1 555 0100',
   email: 'hello@dinemasterpro.com',
+  primaryPlatformHostname: 'restaurant-reservantions-app.pedro-cristo-webdeveloper.workers.dev',
 };

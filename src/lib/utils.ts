@@ -489,6 +489,16 @@ export function isPlatformHost(host: string): boolean {
   if (!host) return true;
   const h = host.toLowerCase().trim();
 
+  // Explicit primary platform hostname (production Cloudflare Workers deployment)
+  const primaryHost = (APP_CONFIG.primaryPlatformHostname || 'restaurant-reservantions-app.pedro-cristo-webdeveloper.workers.dev').toLowerCase();
+  if (
+    h === primaryHost ||
+    h === 'restaurant-reservantions-app.pedro-cristo-webdeveloper.workers.dev' ||
+    h === 'restaurant-reservations-app.pedro-cristo-webdeveloper.workers.dev'
+  ) {
+    return true;
+  }
+
   // Localhost & internal development environments
   if (
     h.includes('localhost') ||
