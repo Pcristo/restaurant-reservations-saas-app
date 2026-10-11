@@ -17,7 +17,7 @@ export const DEFAULT_MARKETING_SETTINGS: MarketingWebsiteSettings = {
   },
   hero: {
     enabled: true,
-    headline: 'Powerful Restaurant Reservations, Simplified.',
+    headline: 'Restaurant Reservations Made Simple.',
     description: 'Manage tables, floor plans, real-time availability, and diners with zero cover commissions. One intelligent operating system built for modern restaurants.',
     primaryCtaText: 'Start Free Trial',
     primaryCtaUrl: '#pricing',
@@ -149,10 +149,14 @@ export async function getMarketingWebsiteSettings(): Promise<MarketingWebsiteSet
     const snap = await getDoc(docRef);
     if (snap.exists()) {
       const data = snap.data();
+      const heroData = data.hero || {};
+      if (heroData.headline === 'Powerful Restaurant Reservations, Simplified.') {
+        heroData.headline = 'Restaurant Reservations Made Simple.';
+      }
       const merged: MarketingWebsiteSettings = {
         enabled: data.enabled !== false,
         general: { ...DEFAULT_MARKETING_SETTINGS.general, ...(data.general || {}) },
-        hero: { ...DEFAULT_MARKETING_SETTINGS.hero, ...(data.hero || {}) },
+        hero: { ...DEFAULT_MARKETING_SETTINGS.hero, ...heroData },
         about: { ...DEFAULT_MARKETING_SETTINGS.about, ...(data.about || {}) },
         reviews: {
           showReviews: data.reviews?.showReviews !== false,

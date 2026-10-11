@@ -501,8 +501,12 @@ export default function MarketingLandingPage({ settings: initialSettings, initia
             {/* Headline */}
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight max-w-4xl mx-auto leading-[1.12]">
               {isPt 
-                ? 'Gestão Poderosa de Reservas, Descomplicada.'
-                : (settings.hero?.headline || 'Powerful Restaurant Reservations, Simplified.')}
+                ? (settings.hero?.headline && settings.hero.headline !== 'Powerful Restaurant Reservations, Simplified.' && settings.hero.headline !== 'Restaurant Reservations Made Simple.'
+                    ? settings.hero.headline
+                    : 'Reservas de Restaurantes Simplificadas.')
+                : (!settings.hero?.headline || settings.hero.headline === 'Powerful Restaurant Reservations, Simplified.'
+                    ? 'Restaurant Reservations Made Simple.'
+                    : settings.hero.headline)}
             </h1>
 
             {/* Description */}

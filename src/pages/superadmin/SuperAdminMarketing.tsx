@@ -467,7 +467,7 @@ export const SuperAdminMarketing: React.FC = () => {
                   ...settings,
                   hero: { ...settings.hero, headline: e.target.value }
                 })}
-                placeholder="Powerful Restaurant Reservations, Simplified."
+                placeholder="Restaurant Reservations Made Simple."
                 className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-white font-semibold text-sm"
               />
             </div>
