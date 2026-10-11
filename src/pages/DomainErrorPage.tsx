@@ -1,9 +1,12 @@
 import React from 'react';
 import { Globe, AlertTriangle, ArrowRight, ShieldCheck, HelpCircle } from 'lucide-react';
 import { APP_CONFIG } from '../data/appConfig';
+import { isPlatformHost } from '../lib/utils';
 
 export const DomainErrorPage: React.FC = () => {
   const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'custom-domain.com';
+  const isPlatform = isPlatformHost(currentHost);
+  const portalUrl = isPlatform ? '/' : `https://${APP_CONFIG.companyName.toLowerCase()}.com`;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center px-4 py-12">
@@ -38,7 +41,7 @@ export const DomainErrorPage: React.FC = () => {
 
         <div className="flex flex-col gap-3">
           <a
-            href="/"
+            href={portalUrl}
             className="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg text-sm transition-colors flex items-center justify-center gap-2 shadow-sm"
           >
             Go to Platform Portal

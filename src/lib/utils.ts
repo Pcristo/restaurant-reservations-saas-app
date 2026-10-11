@@ -3,6 +3,7 @@ import { twMerge } from 'tailwind-merge';
 import { RestaurantSettings, SpecialSchedule } from '../types';
 import dayjs from 'dayjs';
 import { format, parseISO } from 'date-fns';
+import { APP_CONFIG } from '../data/appConfig';
 
 export interface EffectiveOpeningHours {
   closed: boolean;
@@ -479,4 +480,134 @@ export function getRestaurantDefaultCountryCode(
 
   return language === 'pt' ? 'PT' : 'IE';
 }
+
+/**
+ * Checks whether a hostname belongs to the SaaS platform itself (e.g. platform landing,
+ * auth, admin, super-admin, multi-tenant app routes) rather than a restaurant-specific custom domain.
+ */
+export function isPlatformHost(host: string): boolean {
+  if (!host) return true;
+  const h = host.toLowerCase().trim();
+
+  // Localhost & internal development environments
+  if (
+    h.includes('localhost') ||
+    h.includes('127.0.0.1') ||
+    h.includes('0.0.0.0') ||
+    h.endsWith('.local') ||
+    h.endsWith('.internal') ||
+    h.includes('.nip.io') ||
+    h.includes('.lvh.me')
+  ) {
+    return true;
+  }
+
+  // Cloudflare Workers & Pages deployment domains (e.g. restaurant-reservantions-app.pedro-cristo-webdeveloper.workers.dev)
+  if (h.endsWith('.workers.dev') || h.endsWith('.pages.dev')) {
+    return true;
+  }
+
+  // Common cloud hosting & preview environments
+  if (
+    h.endsWith('.run.app') ||
+    h.endsWith('.cloudrun.app') ||
+    h.endsWith('.appspot.com') ||
+    h.endsWith('.web.app') ||
+    h.endsWith('.firebaseapp.com') ||
+    h.endsWith('.vercel.app') ||
+    h.endsWith('.netlify.app') ||
+    h.endsWith('.onrender.com') ||
+    h.endsWith('.fly.dev') ||
+    h.endsWith('.github.io') ||
+    h.endsWith('.googleusercontent.com') ||
+    h.includes('aistudio')
+  ) {
+    return true;
+  }
+
+  // Development tunnels
+  if (
+    h.endsWith('.trycloudflare.com') ||
+    h.endsWith('.ngrok-free.app') ||
+    h.endsWith('.ngrok.io') ||
+    h.endsWith('.loca.lt')
+  ) {
+    return true;
+  }
+
+  // Production SaaS platform domains
+  const platformName = APP_CONFIG.companyName.toLowerCase();
+  const canonicalDomains = [
+    `${platformName}.com`,
+    'dinemasterpro.com',
+    'eataapp.com',
+  ];
+
+  for (const base of canonicalDomains) {
+    if (h === base || h === `www.${base}`) {
+      return true;
+    }
+    // Reserved platform subdomains (app., admin., portal., api., etc.)
+    const platformPrefixes = ['app.', 'admin.', 'portal.', 'api.', 'dev.', 'staging.', 'mail.', 'preview.', 'status.'];
+    if (platformPrefixes.some(prefix => h === `${prefix}${base}`)) {
+      return true;
+    }
+  }
+
+  // Check if configured via Vite environment variable
+  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_PLATFORM_DOMAIN) {
+    const customBase = String(import.meta.env.VITE_PLATFORM_DOMAIN).toLowerCase().trim();
+    if (h === customBase || h === `www.${customBase}` || h.endsWith(`.${customBase}`)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Checks whether a hostname is a restaurant tenant subdomain on a platform domain
+ * (e.g. "bela-italia.dinemasterpro.com", but NOT "www.dinemasterpro.com" or "*.workers.dev")
+ */
+export function isTenantSubdomain(host: string): boolean {
+  if (!host) return false;
+  const h = host.toLowerCase().trim();
+
+  // Cloudflare Workers and Pages have multi-part suffixes (.workers.dev, .pages.dev), NOT tenant subdomains
+  if (h.endsWith('.workers.dev') || h.endsWith('.pages.dev')) {
+    return false;
+  }
+
+  // Other multi-part cloud provider hosts
+  if (
+    h.endsWith('.vercel.app') ||
+    h.endsWith('.netlify.app') ||
+    h.endsWith('.web.app') ||
+    h.endsWith('.firebaseapp.com') ||
+    h.endsWith('.run.app') ||
+    h.endsWith('.onrender.com') ||
+    h.endsWith('.github.io')
+  ) {
+    return false;
+  }
+
+  const platformName = APP_CONFIG.companyName.toLowerCase();
+  const canonicalBases = [`${platformName}.com`, 'dinemasterpro.com', 'eataapp.com'];
+
+  for (const base of canonicalBases) {
+    if (h.endsWith(`.${base}`)) {
+      const parts = h.split('.');
+      if (parts.length >= 3) {
+        const sub = parts[0];
+        const reserved = ['www', 'app', 'admin', 'portal', 'api', 'dev', 'staging', 'mail', 'preview', 'status'];
+        if (!reserved.includes(sub)) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
 

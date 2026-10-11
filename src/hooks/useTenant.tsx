@@ -24,7 +24,7 @@ import {
 import { DEFAULT_PLANS } from '../data/plans';
 import { APP_CONFIG } from '../data/appConfig';
 import { useAuth } from './useAuth';
-import { updateFavicon } from '../lib/utils';
+import { updateFavicon, isPlatformHost, isTenantSubdomain } from '../lib/utils';
 
 export interface TenantContextType {
   tenant: Restaurant | null;
@@ -102,27 +102,34 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return { restaurant: null, isDomainError: false };
     }
 
-    // 2. Custom domain or platform subdomain check
-    const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('run.app');
-    const platformDomain = APP_CONFIG.companyName.toLowerCase() + '.com';
-    const isPlatformDomain = host.endsWith(platformDomain) || host.endsWith('eataapp.com') || host.endsWith('dinemasterpro.com');
+    // 1b. Query param ?restaurant=slug (e.g. ?restaurant=bela-italia)
+    if (queryRestaurant) {
+      const cleanSlug = queryRestaurant.toLowerCase() === 'bella-italia' ? 'bela-italia' : queryRestaurant.toLowerCase();
+      const bySlug = await getRestaurantBySlug(cleanSlug);
+      if (bySlug) return { restaurant: bySlug, isDomainError: false };
+      const byId = await getRestaurant(cleanSlug);
+      if (byId) return { restaurant: byId, isDomainError: false };
+    }
 
-    if (!isLocalhost) {
-      if (isPlatformDomain) {
-        // Subdomain: e.g. bella-italia.dinemasterpro.com
-        const parts = host.split('.');
-        if (parts.length >= 3 && parts[0] !== 'www' && parts[0] !== 'app' && parts[0] !== 'admin') {
-          const subdomain = parts[0];
-          const bySubdomain = await getRestaurantBySlug(subdomain);
-          if (bySubdomain) return { restaurant: bySubdomain, isDomainError: false };
-          return { restaurant: null, isDomainError: true };
-        }
-      } else {
-        // Custom domain: e.g. www.bella-italia.com or bella-italia.com
-        const byDomain = await getRestaurantByDomain(host);
-        if (byDomain) return { restaurant: byDomain, isDomainError: false };
-        return { restaurant: null, isDomainError: true };
-      }
+    // 2. Platform host vs tenant subdomain vs external custom domain check
+    const isPlatform = isPlatformHost(host);
+    const isSubdomain = isTenantSubdomain(host);
+
+    if (isSubdomain) {
+      // Subdomain on a platform base domain: e.g. bela-italia.dinemasterpro.com
+      const parts = host.split('.');
+      const subdomain = parts[0];
+      const bySubdomain = await getRestaurantBySlug(subdomain);
+      if (bySubdomain) return { restaurant: bySubdomain, isDomainError: false };
+      return { restaurant: null, isDomainError: true };
+    }
+
+    if (!isPlatform) {
+      // External Custom domain pointed to SaaS: e.g. www.bella-italia.com or myrestaurant.com
+      const byDomain = await getRestaurantByDomain(host);
+      if (byDomain) return { restaurant: byDomain, isDomainError: false };
+      // Only unregistered external custom domains trigger domain configuration error
+      return { restaurant: null, isDomainError: true };
     }
 
     // 3. Management Route (/admin or /staff) without /r/:slug in path

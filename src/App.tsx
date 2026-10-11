@@ -60,7 +60,7 @@ import CookieConsent from './components/CookieConsent';
 import { BookingNotificationListener } from './components/BookingNotificationListener';
 import Preloader from './components/Preloader';
 import { SyncIndicator } from './components/SyncIndicator';
-import { updateFavicon } from './lib/utils';
+import { updateFavicon, isPlatformHost, isTenantSubdomain } from './lib/utils';
 import { APP_CONFIG } from './data/appConfig';
 
 function ProtectedRoute({ children, role }: { children: React.ReactNode, role?: 'admin' | 'staff' | 'customer' }) {
@@ -479,14 +479,14 @@ function AppContent() {
         const isExplicitBooking = searchParams.get('view') === 'booking' || searchParams.has('restaurant');
         const isPreviewMarketing = searchParams.get('preview') === 'true';
         const host = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
-        const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('run.app');
-        const isCustomDomain = !isLocalhost && !host.endsWith('dinemasterpro.com') && !host.endsWith('eataapp.com');
-        const isSubdomain = !isLocalhost && host.split('.').length >= 3 && !['www', 'app', 'admin'].includes(host.split('.')[0]);
+        const isPlatform = isPlatformHost(host);
+        const isSubdomain = isTenantSubdomain(host);
+        const isCustomDomain = !isPlatform;
 
         const isPlatformLanding = 
           location.pathname === '/marketing' || 
           isPreviewMarketing ||
-          (location.pathname === '/' && !isCustomDomain && !isSubdomain);
+          (location.pathname === '/' && !isCustomDomain && !isSubdomain && !isExplicitBooking);
 
         return (
           <Layout isMarketing={isPlatformLanding}>
