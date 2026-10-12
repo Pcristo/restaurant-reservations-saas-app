@@ -9,10 +9,11 @@ import {
   Sparkles, Save, Globe, Eye, MessageSquare, 
   HelpCircle, CreditCard, Mail, Phone, ExternalLink, 
   Plus, Trash2, Edit2, Check, Star, Upload, Image as ImageIcon,
-  AlertCircle, ShieldCheck, ArrowRight
+  AlertCircle, ShieldCheck, ArrowRight, Video, LayoutGrid
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Link } from 'react-router-dom';
+import { cn } from '../../lib/utils';
 
 export const SuperAdminMarketing: React.FC = () => {
   const [settings, setSettings] = useState<MarketingWebsiteSettings>(DEFAULT_MARKETING_SETTINGS);
@@ -41,6 +42,29 @@ export const SuperAdminMarketing: React.FC = () => {
       toast.error(err?.message || 'Failed to save marketing website settings');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleHeroModeChange = async (newMode: 'existing' | 'video') => {
+    const updatedHero = {
+      ...settings.hero,
+      mode: newMode
+    };
+    const updatedSettings = {
+      ...settings,
+      hero: updatedHero
+    };
+    setSettings(updatedSettings);
+
+    try {
+      await updateMarketingWebsiteSettings({ hero: updatedHero });
+      toast.success(
+        newMode === 'video'
+          ? 'Hero section mode set to Video Background!'
+          : 'Hero section mode set to Existing Hero!'
+      );
+    } catch (err: any) {
+      console.warn('Notice saving hero mode immediately:', err);
     }
   };
 
@@ -444,6 +468,87 @@ export const SuperAdminMarketing: React.FC = () => {
           </div>
 
           <div className="space-y-4">
+            {/* Hero Section Mode (Existing Hero vs Video Background) */}
+            <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3.5">
+                <div>
+                  <label className="block text-slate-200 font-semibold text-sm">
+                    Hero Section Mode
+                  </label>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Choose how the homepage hero section is presented to visitors.
+                  </p>
+                </div>
+                <span className="text-xs px-2.5 py-1 rounded-full font-mono font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 w-fit">
+                  {(settings.hero?.mode || 'video') === 'video' ? 'Video Background Active' : 'Existing Hero Active'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Option 1: Existing Hero */}
+                <button
+                  type="button"
+                  onClick={() => handleHeroModeChange('existing')}
+                  className={cn(
+                    "p-4 rounded-xl text-left border transition-all cursor-pointer flex flex-col justify-between",
+                    (settings.hero?.mode || 'video') === 'existing'
+                      ? "border-amber-500 bg-amber-500/10 text-white shadow-md shadow-amber-500/10"
+                      : "border-slate-800 bg-slate-950/60 hover:border-slate-700 text-slate-300"
+                  )}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2 font-bold text-sm text-white">
+                        <LayoutGrid className="w-4 h-4 text-amber-400" />
+                        <span>Existing Hero</span>
+                      </div>
+                      {(settings.hero?.mode || 'video') === 'existing' && (
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-sm shadow-amber-400/50" />
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Display the current hero section exactly as it is now with the dark background, subtle glow, and live service floor layout mockup.
+                    </p>
+                  </div>
+                  <div className="mt-3 pt-2.5 border-t border-slate-800/80 text-[11px] font-mono text-slate-400 flex items-center justify-between">
+                    <span>Section Height:</span>
+                    <span className="text-slate-300">Default Responsive Height</span>
+                  </div>
+                </button>
+
+                {/* Option 2: Video Background */}
+                <button
+                  type="button"
+                  onClick={() => handleHeroModeChange('video')}
+                  className={cn(
+                    "p-4 rounded-xl text-left border transition-all cursor-pointer flex flex-col justify-between",
+                    (settings.hero?.mode || 'video') === 'video'
+                      ? "border-amber-500 bg-amber-500/10 text-white shadow-md shadow-amber-500/10"
+                      : "border-slate-800 bg-slate-950/60 hover:border-slate-700 text-slate-300"
+                  )}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2 font-bold text-sm text-white">
+                        <Video className="w-4 h-4 text-amber-400" />
+                        <span>Video Background</span>
+                      </div>
+                      {(settings.hero?.mode || 'video') === 'video' && (
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-sm shadow-amber-400/50" />
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Display the existing hero section with the background video from <code className="text-amber-300 font-mono text-[11px]">assets/videos</code>, 50% dark overlay, and 100vh height.
+                    </p>
+                  </div>
+                  <div className="mt-3 pt-2.5 border-t border-slate-800/80 text-[11px] font-mono text-slate-400 flex items-center justify-between">
+                    <span>Section Height:</span>
+                    <span className="text-amber-400 font-bold">100vh Viewport Height</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             <div>
               <label className="block text-slate-300 font-medium mb-1">Hero Pill / Badge Text</label>
               <input

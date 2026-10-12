@@ -17,6 +17,7 @@ export const DEFAULT_MARKETING_SETTINGS: MarketingWebsiteSettings = {
   },
   hero: {
     enabled: true,
+    mode: 'video',
     headline: 'Restaurant Reservations Made Simple.',
     description: 'Manage tables, floor plans, real-time availability, and diners with zero cover commissions. One intelligent operating system built for modern restaurants.',
     primaryCtaText: 'Start Free Trial',
@@ -139,6 +140,13 @@ export async function getMarketingWebsiteSettings(): Promise<MarketingWebsiteSet
     try {
       const raw = localStorage.getItem(MARKETING_SETTINGS_CACHE_KEY);
       if (raw) cached = JSON.parse(raw);
+      if (cached) {
+        if (!cached.hero) {
+          cached.hero = { ...DEFAULT_MARKETING_SETTINGS.hero };
+        } else if (!cached.hero.mode) {
+          cached.hero.mode = 'video';
+        }
+      }
     } catch {
       // ignore
     }

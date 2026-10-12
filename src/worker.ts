@@ -8,8 +8,16 @@ import { onRequestPost as testEmailHandler } from "../functions/api/email/test";
 import { onRequestPost as deleteUserByEmailHandler } from "../functions/api/admin/delete-user-by-email";
 import { onRequestPost as deleteUserHandler } from "../functions/api/admin/delete-user";
 import { onRequestPost as updatePasswordHandler } from "../functions/api/admin/update-password";
+import { onRequestPost as updateAdminCredentialsHandler } from "../functions/api/admin/update-admin-credentials";
+import { onRequestPost as createTenantHandler } from "../functions/api/admin/create-tenant";
+import { onRequestPost as deleteRestaurantHandler } from "../functions/api/admin/delete-restaurant";
+import { onRequestPost as contactHandler } from "../functions/api/contact";
 import { onRequestPost as verifyRecaptchaHandler } from "../functions/api/verify-recaptcha";
 import { onRequest as cronRemindersHandler } from "../functions/api/cron/reminders";
+import { 
+  onRequestPost as updateResendConfigHandler,
+  onRequestGet as getResendConfigHandler 
+} from "../functions/api/admin/update-resend-config";
 
 export interface Env {
   ASSETS: { fetch: (request: Request) => Promise<Response> };
@@ -71,11 +79,29 @@ export default {
       if (request.method === 'POST' && path === '/api/admin/update-password') {
         return await updatePasswordHandler(context);
       }
+      if (request.method === 'POST' && path === '/api/admin/update-admin-credentials') {
+        return await updateAdminCredentialsHandler(context);
+      }
+      if (request.method === 'POST' && path === '/api/admin/create-tenant') {
+        return await createTenantHandler(context);
+      }
+      if (request.method === 'POST' && path === '/api/admin/delete-restaurant') {
+        return await deleteRestaurantHandler(context);
+      }
+      if (request.method === 'POST' && path === '/api/contact') {
+        return await contactHandler(context);
+      }
       if (request.method === 'POST' && path === '/api/verify-recaptcha') {
         return await verifyRecaptchaHandler(context);
       }
       if (path === '/api/cron/reminders') {
         return await cronRemindersHandler(context);
+      }
+      if (request.method === 'POST' && path === '/api/admin/update-resend-config') {
+        return await updateResendConfigHandler(context);
+      }
+      if (request.method === 'GET' && (path === '/api/admin/update-resend-config' || path === '/api/admin/resend-config')) {
+        return await getResendConfigHandler(context);
       }
 
       // Block unmapped /api/ routes

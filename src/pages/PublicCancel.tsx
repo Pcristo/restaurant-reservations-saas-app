@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Reservation } from '../types';
 import { useLanguage } from '../hooks/useLanguage';
@@ -47,7 +47,6 @@ export default function PublicCancel() {
       
       if (reservation) {
         try {
-          const { doc, setDoc } = await import('firebase/firestore');
           const alertId = 'alert-cancel-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
           const alertRef = doc(db, 'smart_alerts', alertId);
           await setDoc(alertRef, {

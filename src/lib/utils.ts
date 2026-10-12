@@ -123,6 +123,33 @@ export function getEffectiveOpeningHours(
   };
 }
 
+export function getSessionFromTime(
+  time: string,
+  dateStr?: string,
+  manualSession?: 'lunch' | 'dinner',
+  settings?: RestaurantSettings | null
+): 'lunch' | 'dinner' | 'default' {
+  if (manualSession) return manualSession;
+  if (!time) return 'default';
+
+  if (settings && dateStr) {
+    const eff = getEffectiveOpeningHours(dateStr, settings);
+    if (eff?.lunch && eff.lunch.active !== false && time >= eff.lunch.open && time <= eff.lunch.close) {
+      return 'lunch';
+    }
+    if (eff?.dinner && eff.dinner.active !== false && time >= eff.dinner.open && time <= eff.dinner.close) {
+      return 'dinner';
+    }
+  }
+
+  const hour = parseInt((time || '').split(':')[0], 10);
+  if (!isNaN(hour)) {
+    if (hour >= 11 && hour < 17) return 'lunch';
+    if (hour >= 17 || hour < 4) return 'dinner';
+  }
+  return 'default';
+}
+
 export function findSpecialScheduleConflicts(schedules: SpecialSchedule[]): { s1: SpecialSchedule; s2: SpecialSchedule; overlappingDays: string[] }[] {
   const conflicts: { s1: SpecialSchedule; s2: SpecialSchedule; overlappingDays: string[] }[] = [];
   if (!schedules || schedules.length < 2) return conflicts;

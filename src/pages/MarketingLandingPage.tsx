@@ -17,6 +17,7 @@ import { toast } from 'react-hot-toast';
 import { MarketingSEOHead } from '../components/MarketingSEOHead';
 import { useLanguage } from '../hooks/useLanguage';
 import { cn } from '../lib/utils';
+import restaurantManagerVideo from '../assets/videos/restaurant_manager_video.mp4';
 
 interface MarketingLandingPageProps {
   settings?: MarketingWebsiteSettings;
@@ -46,8 +47,10 @@ export default function MarketingLandingPage({ settings: initialSettings, initia
   const [contactError, setContactError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load fresh settings if not provided
-    if (!initialSettings) {
+    // Load fresh settings or sync when initialSettings changes
+    if (initialSettings) {
+      setSettings(initialSettings);
+    } else {
       getMarketingWebsiteSettings().then(setSettings);
     }
 
@@ -142,6 +145,23 @@ export default function MarketingLandingPage({ settings: initialSettings, initia
   const activeReviews = (settings.reviews?.items || []).filter(r => r.isActive !== false);
   const showReviewsSection = settings.reviews?.showReviews !== false && activeReviews.length > 0;
   const showPricingSection = settings.pricing?.showPricing !== false;
+  const isVideoHero = (settings.hero?.mode || 'video') === 'video';
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    if (!isVideoHero) {
+      setIsScrolled(false);
+      return;
+    }
+
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isVideoHero]);
 
   // Portuguese translations for default features
   const defaultPtFeatures = [
@@ -230,6 +250,152 @@ export default function MarketingLandingPage({ settings: initialSettings, initia
     return p.description;
   };
 
+  const renderLiveServiceMockup = () => (
+    <div className="rounded-xl overflow-hidden border border-slate-800/80 bg-slate-950">
+      {/* Mock Browser Header */}
+      <div className="h-9 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
+          <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
+          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
+        </div>
+        <div className="text-[11px] font-mono text-slate-400 bg-slate-950 px-6 py-0.5 rounded border border-slate-800/80">
+          app.dinemasterpro.com/admin/live
+        </div>
+        <div className="text-[11px] text-emerald-400 flex items-center gap-1 font-mono font-semibold">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span>{isPt ? 'Serviço em Direto' : 'Live Service'}</span>
+        </div>
+      </div>
+
+      {/* Mock Live Service Floor Grid */}
+      <div className="p-6 md:p-8 bg-slate-950 text-left grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Left Column: Live Service Shift Stats */}
+        <div className="space-y-4">
+          <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800">
+            <div className="text-xs text-slate-400">
+              {isPt ? 'Turno de Jantar de Hoje' : "Tonight's Dinner Shift"}
+            </div>
+            <div className="text-2xl font-bold text-white mt-1">
+              48 / 60 {isPt ? 'Clientes' : 'Covers'}
+            </div>
+            <div className="w-full bg-slate-800 h-2 rounded-full mt-3 overflow-hidden">
+              <div className="bg-amber-500 h-full rounded-full w-[80%]" />
+            </div>
+            <div className="flex justify-between text-[11px] text-slate-400 mt-2">
+              <span>{isPt ? '80% Capacidade Ocupada' : '80% Seated Capacity'}</span>
+              <span className="text-amber-400 font-semibold">
+                {isPt ? '12 Lugares Livres' : '12 Covers Open'}
+              </span>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 space-y-2.5">
+            <div className="text-xs font-semibold text-slate-300">
+              {isPt ? 'Próximas Chegadas' : 'Upcoming Arrivals'}
+            </div>
+            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80 flex items-center justify-between text-xs">
+              <div>
+                <div className="font-semibold text-white">Oliver Vance (4p)</div>
+                <div className="text-[11px] text-slate-400">
+                  {isPt ? 'Mesa 4 • Esplanada' : 'Table 4 • Patio Room'}
+                </div>
+              </div>
+              <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono text-[10px] font-bold">
+                19:30
+              </span>
+            </div>
+            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80 flex items-center justify-between text-xs">
+              <div>
+                <div className="font-semibold text-white">Elena Rostova (2p)</div>
+                <div className="text-[11px] text-slate-400">
+                  {isPt ? 'Mesa 1 • Sala Principal' : 'Table 1 • Main Dining'}
+                </div>
+              </div>
+              <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-mono text-[10px] font-bold">
+                19:45
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Middle & Right: Interactive Floor Layout */}
+        <div className="md:col-span-2 p-5 rounded-xl bg-slate-900/40 border border-slate-800/80 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+              <div className="text-xs font-bold text-white flex items-center gap-2">
+                <LayoutGrid size={14} className="text-amber-400" />
+                <span>{isPt ? 'Sala Principal & Esplanada (Tempo Real)' : 'Main Dining Room & Terrace (Live Status)'}</span>
+              </div>
+              <div className="flex items-center gap-3 text-[11px]">
+                <span className="flex items-center gap-1 text-emerald-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" /> {isPt ? 'Disponível' : 'Available'}
+                </span>
+                <span className="flex items-center gap-1 text-amber-400">
+                  <span className="w-2 h-2 rounded-full bg-amber-400" /> {isPt ? 'Reservada' : 'Reserved'}
+                </span>
+                <span className="flex items-center gap-1 text-rose-400">
+                  <span className="w-2 h-2 rounded-full bg-rose-400" /> {isPt ? 'Ocupada' : 'Seated'}
+                </span>
+              </div>
+            </div>
+
+            {/* Mock Table Layout */}
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+              <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/30 text-center">
+                <div className="text-[10px] font-mono text-emerald-400 font-bold">T-01 (2p)</div>
+                <div className="text-xs text-white font-semibold mt-1">{isPt ? 'Disponível' : 'Available'}</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">{isPt ? 'Vista Janela' : 'Window View'}</div>
+              </div>
+              <div className="p-3 rounded-lg bg-rose-950/20 border border-rose-500/40 text-center">
+                <div className="text-[10px] font-mono text-rose-400 font-bold">T-02 (4p)</div>
+                <div className="text-xs text-white font-semibold mt-1">{isPt ? 'Ocupada • 42m' : 'Seated • 42m'}</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">M. Rossi (4)</div>
+              </div>
+              <div className="p-3 rounded-lg bg-amber-950/20 border border-amber-500/40 text-center">
+                <div className="text-[10px] font-mono text-amber-400 font-bold">T-03 (6p)</div>
+                <div className="text-xs text-white font-semibold mt-1">{isPt ? 'Reservada' : 'Reserved'}</div>
+                <div className="text-[10px] text-amber-300 mt-0.5">{isPt ? 'Chega em 15m' : 'Due in 15m'}</div>
+              </div>
+              <div className="p-3 rounded-lg bg-rose-950/20 border border-rose-500/40 text-center">
+                <div className="text-[10px] font-mono text-rose-400 font-bold">T-04 (2p)</div>
+                <div className="text-xs text-white font-semibold mt-1">{isPt ? 'Ocupada • 18m' : 'Seated • 18m'}</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Mesa VIP</div>
+              </div>
+              <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/30 text-center">
+                <div className="text-[10px] font-mono text-emerald-400 font-bold">T-05 (4p)</div>
+                <div className="text-xs text-white font-semibold mt-1">{isPt ? 'Disponível' : 'Available'}</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">{isPt ? 'Sala Central' : 'Main Floor'}</div>
+              </div>
+              <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/30 text-center">
+                <div className="text-[10px] font-mono text-emerald-400 font-bold">T-06 (4p)</div>
+                <div className="text-xs text-white font-semibold mt-1">{isPt ? 'Disponível' : 'Available'}</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">{isPt ? 'Sala Central' : 'Main Floor'}</div>
+              </div>
+              <div className="p-3 rounded-lg bg-amber-950/20 border border-amber-500/40 text-center">
+                <div className="text-[10px] font-mono text-amber-400 font-bold">T-07 (8p)</div>
+                <div className="text-xs text-white font-semibold mt-1">{isPt ? 'Reservada' : 'Reserved'}</div>
+                <div className="text-[10px] text-amber-300 mt-0.5">{isPt ? 'Às 20:00' : 'Due at 20:00'}</div>
+              </div>
+              <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/30 text-center">
+                <div className="text-[10px] font-mono text-emerald-400 font-bold">T-08 (2p)</div>
+                <div className="text-xs text-white font-semibold mt-1">{isPt ? 'Disponível' : 'Available'}</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">{isPt ? 'Canto Calmo' : 'Quiet Corner'}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+            <span>{isPt ? 'Sincronização offline ativa' : 'Offline-first database sync active'}</span>
+            <span className="text-amber-400 font-mono font-medium">
+              {isPt ? 'Sincronizado há < 1s' : 'Synced < 1s ago'}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-amber-500 selection:text-slate-950">
       <MarketingSEOHead settings={settings} plans={plans} />
@@ -237,7 +403,19 @@ export default function MarketingLandingPage({ settings: initialSettings, initia
       {/* ============================================================== */}
       {/* 1. Header & Navigation                                         */}
       {/* ============================================================== */}
-      <header className="sticky top-0 z-50 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80">
+      <header
+        className={cn(
+          "z-50 transition-all duration-300",
+          isVideoHero
+            ? cn(
+                "fixed top-0 left-0 right-0",
+                isScrolled || mobileMenuOpen
+                  ? "bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 shadow-lg shadow-black/40"
+                  : "bg-transparent border-b border-transparent backdrop-blur-none"
+              )
+            : "sticky top-0 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80"
+        )}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 group">
@@ -483,11 +661,45 @@ export default function MarketingLandingPage({ settings: initialSettings, initia
       {/* 2. Hero Section                                                */}
       {/* ============================================================== */}
       {settings.hero?.enabled !== false && (
-        <section className="relative pt-12 pb-20 md:pt-20 md:pb-32 overflow-hidden border-b border-slate-800/60">
-          {/* Subtle background glow */}
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+        <section 
+          className={cn(
+            "relative overflow-hidden border-b border-slate-800/60",
+            isVideoHero 
+              ? "h-screen min-h-[100vh] flex items-center justify-center pt-20 pb-12" 
+              : "pt-12 pb-20 md:pt-20 md:pb-32"
+          )}
+          style={isVideoHero ? { height: '100vh', minHeight: '100vh' } : undefined}
+        >
+          {/* Video Background and 50% Black Overlay */}
+          {isVideoHero && (
+            <>
+              <video
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="auto"
+                className="absolute inset-0 w-full h-full object-cover pointer-events-none z-0"
+                src={restaurantManagerVideo}
+              >
+                <source src={restaurantManagerVideo} type="video/mp4" />
+                <source src="/videos/restaurant_manager_video.mp4" type="video/mp4" />
+              </video>
+              <div 
+                className="absolute inset-0 bg-black/50 pointer-events-none z-[1]" 
+                style={{ backgroundColor: 'black', opacity: 0.5 }}
+                aria-hidden="true" 
+              />
+            </>
+          )}
 
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+          {/* Subtle background glow */}
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-amber-500/10 rounded-full blur-3xl pointer-events-none z-[2]" />
+
+          <div className={cn(
+            "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center",
+            isVideoHero && "flex flex-col items-center justify-center my-auto w-full"
+          )}>
             {/* Badge */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900 border border-amber-500/30 text-amber-400 text-xs font-medium mb-8 shadow-sm">
               <Sparkles size={14} className="text-amber-400" />
@@ -550,151 +762,25 @@ export default function MarketingLandingPage({ settings: initialSettings, initia
               </span>
             </div>
 
-            {/* Dashboard / Floor Plan Mockup Showcase */}
-            <div className="mt-14 max-w-5xl mx-auto rounded-2xl border border-slate-800 bg-slate-900/90 p-2 sm:p-4 shadow-2xl shadow-black/80">
-              <div className="rounded-xl overflow-hidden border border-slate-800/80 bg-slate-950">
-                {/* Mock Browser Header */}
-                <div className="h-9 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
-                  </div>
-                  <div className="text-[11px] font-mono text-slate-400 bg-slate-950 px-6 py-0.5 rounded border border-slate-800/80">
-                    app.dinemasterpro.com/admin/live
-                  </div>
-                  <div className="text-[11px] text-emerald-400 flex items-center gap-1 font-mono font-semibold">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>{isPt ? 'Serviço em Direto' : 'Live Service'}</span>
-                  </div>
-                </div>
-
-                {/* Mock Live Service Floor Grid */}
-                <div className="p-6 md:p-8 bg-slate-950 text-left grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {/* Left Column: Live Service Shift Stats */}
-                  <div className="space-y-4">
-                    <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800">
-                      <div className="text-xs text-slate-400">
-                        {isPt ? 'Turno de Jantar de Hoje' : "Tonight's Dinner Shift"}
-                      </div>
-                      <div className="text-2xl font-bold text-white mt-1">
-                        48 / 60 {isPt ? 'Clientes' : 'Covers'}
-                      </div>
-                      <div className="w-full bg-slate-800 h-2 rounded-full mt-3 overflow-hidden">
-                        <div className="bg-amber-500 h-full rounded-full w-[80%]" />
-                      </div>
-                      <div className="flex justify-between text-[11px] text-slate-400 mt-2">
-                        <span>{isPt ? '80% Capacidade Ocupada' : '80% Seated Capacity'}</span>
-                        <span className="text-amber-400 font-semibold">
-                          {isPt ? '12 Lugares Livres' : '12 Covers Open'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 space-y-2.5">
-                      <div className="text-xs font-semibold text-slate-300">
-                        {isPt ? 'Próximas Chegadas' : 'Upcoming Arrivals'}
-                      </div>
-                      <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80 flex items-center justify-between text-xs">
-                        <div>
-                          <div className="font-semibold text-white">Oliver Vance (4p)</div>
-                          <div className="text-[11px] text-slate-400">
-                            {isPt ? 'Mesa 4 • Esplanada' : 'Table 4 • Patio Room'}
-                          </div>
-                        </div>
-                        <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono text-[10px] font-bold">
-                          19:30
-                        </span>
-                      </div>
-                      <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80 flex items-center justify-between text-xs">
-                        <div>
-                          <div className="font-semibold text-white">Elena Rostova (2p)</div>
-                          <div className="text-[11px] text-slate-400">
-                            {isPt ? 'Mesa 1 • Sala Principal' : 'Table 1 • Main Dining'}
-                          </div>
-                        </div>
-                        <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-mono text-[10px] font-bold">
-                          19:45
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Middle & Right: Interactive Floor Layout */}
-                  <div className="md:col-span-2 p-5 rounded-xl bg-slate-900/40 border border-slate-800/80 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
-                        <div className="text-xs font-bold text-white flex items-center gap-2">
-                          <LayoutGrid size={14} className="text-amber-400" />
-                          <span>{isPt ? 'Sala Principal & Esplanada (Tempo Real)' : 'Main Dining Room & Terrace (Live Status)'}</span>
-                        </div>
-                        <div className="flex items-center gap-3 text-[11px]">
-                          <span className="flex items-center gap-1 text-emerald-400">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400" /> {isPt ? 'Disponível' : 'Available'}
-                          </span>
-                          <span className="flex items-center gap-1 text-amber-400">
-                            <span className="w-2 h-2 rounded-full bg-amber-400" /> {isPt ? 'Reservada' : 'Reserved'}
-                          </span>
-                          <span className="flex items-center gap-1 text-rose-400">
-                            <span className="w-2 h-2 rounded-full bg-rose-400" /> {isPt ? 'Ocupada' : 'Seated'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Mock Table Layout */}
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                        <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/30 text-center">
-                          <div className="text-[10px] font-mono text-emerald-400 font-bold">T-01 (2p)</div>
-                          <div className="text-xs text-white font-semibold mt-1">{isPt ? 'Disponível' : 'Available'}</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">{isPt ? 'Vista Janela' : 'Window View'}</div>
-                        </div>
-                        <div className="p-3 rounded-lg bg-rose-950/20 border border-rose-500/40 text-center">
-                          <div className="text-[10px] font-mono text-rose-400 font-bold">T-02 (4p)</div>
-                          <div className="text-xs text-white font-semibold mt-1">{isPt ? 'Ocupada • 42m' : 'Seated • 42m'}</div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">M. Rossi (4)</div>
-                        </div>
-                        <div className="p-3 rounded-lg bg-amber-950/20 border border-amber-500/40 text-center">
-                          <div className="text-[10px] font-mono text-amber-400 font-bold">T-03 (6p)</div>
-                          <div className="text-xs text-white font-semibold mt-1">{isPt ? 'Reservada' : 'Reserved'}</div>
-                          <div className="text-[10px] text-amber-300 mt-0.5">{isPt ? 'Chega em 15m' : 'Due in 15m'}</div>
-                        </div>
-                        <div className="p-3 rounded-lg bg-rose-950/20 border border-rose-500/40 text-center">
-                          <div className="text-[10px] font-mono text-rose-400 font-bold">T-04 (2p)</div>
-                          <div className="text-xs text-white font-semibold mt-1">{isPt ? 'Ocupada • 18m' : 'Seated • 18m'}</div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">Mesa VIP</div>
-                        </div>
-                        <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/30 text-center">
-                          <div className="text-[10px] font-mono text-emerald-400 font-bold">T-05 (4p)</div>
-                          <div className="text-xs text-white font-semibold mt-1">{isPt ? 'Disponível' : 'Available'}</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">{isPt ? 'Sala Central' : 'Main Floor'}</div>
-                        </div>
-                        <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/30 text-center">
-                          <div className="text-[10px] font-mono text-emerald-400 font-bold">T-06 (4p)</div>
-                          <div className="text-xs text-white font-semibold mt-1">{isPt ? 'Disponível' : 'Available'}</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">{isPt ? 'Sala Central' : 'Main Floor'}</div>
-                        </div>
-                        <div className="p-3 rounded-lg bg-amber-950/20 border border-amber-500/40 text-center">
-                          <div className="text-[10px] font-mono text-amber-400 font-bold">T-07 (8p)</div>
-                          <div className="text-xs text-white font-semibold mt-1">{isPt ? 'Reservada' : 'Reserved'}</div>
-                          <div className="text-[10px] text-amber-300 mt-0.5">{isPt ? 'Às 20:00' : 'Due at 20:00'}</div>
-                        </div>
-                        <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/30 text-center">
-                          <div className="text-[10px] font-mono text-emerald-400 font-bold">T-08 (2p)</div>
-                          <div className="text-xs text-white font-semibold mt-1">{isPt ? 'Disponível' : 'Available'}</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">{isPt ? 'Canto Calmo' : 'Quiet Corner'}</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-                      <span>{isPt ? 'Sincronização offline ativa' : 'Offline-first database sync active'}</span>
-                      <span className="text-amber-400 font-mono font-medium">
-                        {isPt ? 'Sincronizado há < 1s' : 'Synced < 1s ago'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+            {/* Dashboard / Floor Plan Mockup Showcase: ONLY rendered inside hero when NOT video hero */}
+            {!isVideoHero && (
+              <div className="mt-14 max-w-5xl mx-auto rounded-2xl border border-slate-800 bg-slate-900/90 p-2 sm:p-4 shadow-2xl shadow-black/80">
+                {renderLiveServiceMockup()}
               </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ============================================================== */}
+      {/* 2b. Live Floor Plan Showcase (Moved Below Hero for Video Mode) */}
+      {/* ============================================================== */}
+      {settings.hero?.enabled !== false && isVideoHero && (
+        <section className="relative py-14 md:py-20 bg-slate-950 border-b border-slate-800/80 overflow-hidden">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div className="max-w-5xl mx-auto rounded-2xl border border-slate-800 bg-slate-900/90 p-2 sm:p-4 shadow-2xl shadow-black/80">
+              {renderLiveServiceMockup()}
             </div>
           </div>
         </section>

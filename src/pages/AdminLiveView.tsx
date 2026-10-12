@@ -30,6 +30,7 @@ import CronogramaView from '../components/CronogramaView';
 import CustomDropdown, { DropdownOption } from '../components/CustomDropdown';
 import { triggerPrint } from '../utils/printUtils';
 import { takeScreenshot } from '../utils/screenshotUtils';
+import { checkReservationConflict } from '../features/reservations/conflictDetection';
 
 const cleanTableName = (name: string) => {
   return name.replace(/table\s*/gi, '').replace(/mesa\s*/gi, '').trim();
@@ -1037,69 +1038,19 @@ export default function AdminLiveView() {
 
   const checkOverlap = (resId: string, tableId: string, newTime: string) => {
     if (resId !== 'new-walk-in') {
-       const res = filteredReservations.find(r => r.id === resId);
-       if (res && ['cancelled', 'completed', 'no-show', 'blocked', 'waiting-list'].includes(res.status)) return undefined;
+      const res = filteredReservations.find(r => r.id === resId);
+      if (res && ['cancelled', 'completed', 'no-show', 'blocked', 'waiting-list'].includes(res.status)) return undefined;
     }
-    const table = tables.find(t => t.id === tableId);
-    if (!table) return undefined;
-
-    const sessionKey = getSessionFromTime(newTime);
-    const currentJoin = table.dailyJoins?.[selectedDate]?.[sessionKey];
-    const joinGroup = currentJoin && currentJoin.joinedTables && currentJoin.joinedTables.length > 0
-      ? [tableId, ...currentJoin.joinedTables]
-      : [tableId];
-
-    // Check if there is a blocked reservation (status === 'blocked') on ANY table in the joinGroup for this date, or if the table is blocked in blockedDates
-    const blockedRes = filteredReservations.find(r => {
-      if (r.id === resId || r.date !== selectedDate || r.status !== 'blocked') return false;
-      return joinGroup.includes(r.tableId || '');
+    const result = checkReservationConflict({
+      currentResId: resId === 'new-walk-in' ? undefined : resId,
+      tableId,
+      date: selectedDate,
+      time: newTime,
+      tables,
+      reservations: filteredReservations,
+      settings
     });
-
-    if (blockedRes) {
-      return blockedRes;
-    }
-
-    const isTableBlocked = joinGroup.some(tid => {
-      const tObj = tables.find(t => t.id === tid);
-      if (!tObj) return false;
-      return !!(tObj.blockedDates?.[selectedDate]?.[sessionKey] || tObj.blockedDates?.[selectedDate]?.default || tObj.isBlocked);
-    });
-
-    if (isTableBlocked) {
-      return {
-        id: 'blocked-simulated',
-        customerName: 'BLOCKED',
-        customerEmail: '',
-        customerPhone: '',
-        date: selectedDate,
-        time: '00:00',
-        guests: 0,
-        tableId: tableId,
-        status: 'blocked',
-        notes: 'Manual block',
-        source: 'admin'
-      } as Reservation;
-    }
-
-    const newStart = parse(newTime, 'HH:mm', new Date());
-    const gap = settings?.minReservationGap || 135;
-    const newEnd = addMinutes(newStart, gap);
-
-    const groupOverlappingRes = filteredReservations.filter(r => {
-      if (r.id === resId || r.date !== selectedDate || ['cancelled', 'completed', 'no-show', 'blocked', 'waiting-list'].includes(r.status)) return false;
-      if (!joinGroup.includes(r.tableId || '')) return false;
-
-      const resStart = parse(r.time, 'HH:mm', new Date());
-      const resEnd = addMinutes(resStart, gap);
-
-      return (newStart < resEnd && resStart < newEnd);
-    });
-
-    if (groupOverlappingRes.length >= 1) {
-      return groupOverlappingRes[0];
-    }
-
-    return undefined;
+    return result.conflictingReservation || undefined;
   };
 
   const handleTableChange = async (resId: string, newTableId: string, newTableName?: string, force = false) => {

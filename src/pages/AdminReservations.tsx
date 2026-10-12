@@ -47,6 +47,7 @@ import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { APP_CONFIG } from '../data/appConfig';
 import CustomDropdown, { DropdownOption } from '../components/CustomDropdown';
+import { checkReservationConflict } from '../features/reservations/conflictDetection';
 
 dayjs.extend(customParseFormat);
 
@@ -1021,76 +1022,18 @@ export default function AdminReservations() {
     time: string,
     manualSession?: 'lunch' | 'dinner'
   ) => {
-    if (!tableId || tableId === 'auto' || tableId === 'none') return null;
-
-    // Get all linked tables in the join group
-    const joinGroup = getJoinGroupForTable(tableId, date, time);
-
-    // 1. Check if there is a manual block (status === 'blocked') on ANY table in the group for that day/session.
-    const isGroupBlocked = reservations.some(r => {
-      if (r.id === currentResId || r.date !== date || r.status !== 'blocked') return false;
-      return joinGroup.includes(r.tableId || '');
+    const result = checkReservationConflict({
+      currentResId,
+      tableId,
+      date,
+      time,
+      tables,
+      reservations,
+      settings,
+      manualSession
     });
-
-    if (isGroupBlocked) {
-      const blockedRes = reservations.find(r => {
-        if (r.id === currentResId || r.date !== date || r.status !== 'blocked') return false;
-        return joinGroup.includes(r.tableId || '');
-      });
-      return blockedRes || null;
-    }
-
-    const sessionKey = getSessionFromTime(time, date, manualSession);
-    const isTableBlocked = joinGroup.some(tid => {
-      const tObj = tables.find(t => t.id === tid);
-      if (!tObj) return false;
-      return !!(tObj.blockedDates?.[date]?.[sessionKey] || tObj.blockedDates?.[date]?.default || tObj.isBlocked);
-    });
-
-    if (isTableBlocked) {
-      return {
-        id: 'blocked-simulated',
-        customerName: 'BLOCKED',
-        customerEmail: '',
-        customerPhone: '',
-        date: date,
-        time: '00:00',
-        guests: 0,
-        tableId: tableId,
-        status: 'blocked',
-        notes: 'Manual block',
-        source: 'admin'
-      } as any;
-    }
-
-    const gap = settings?.minReservationGap || 135;
-    if (!date || !time) return null;
-    const [year, month, day] = date.split('-').map(Number);
-    const [hours, minutes] = time.split(':').map(Number);
-    const newStart = new Date(year, month - 1, day, hours, minutes, 0, 0);
-    const newEnd = addMinutes(newStart, gap);
-
-    // Find all active reservations on ANY table in the join group that overlap with the new slot.
-    const overlappingGroupReservations = reservations.filter(r => {
-      if (r.id === currentResId || r.date !== date) return false;
-      if (['cancelled', 'completed', 'no-show', 'blocked', 'waiting-list'].includes(r.status)) return false;
-      if (!joinGroup.includes(r.tableId || '')) return false;
-      if (!r.date || !r.time) return false;
-
-      const [rYear, rMonth, rDay] = r.date.split('-').map(Number);
-      const [rHours, rMinutes] = r.time.split(':').map(Number);
-      const resStart = new Date(rYear, rMonth - 1, rDay, rHours, rMinutes, 0, 0);
-      const resEnd = addMinutes(resStart, gap);
-
-      return (newStart < resEnd && resStart < newEnd);
-    });
-
-    if (overlappingGroupReservations.length >= 1) {
-      return overlappingGroupReservations[0];
-    }
-
-    return null;
-  }, [reservations, settings, getJoinGroupForTable]);
+    return result.conflictingReservation || null;
+  }, [reservations, tables, settings]);
 
   const formConflict = useMemo(() => {
     const targetRes = editingRes || newRes;

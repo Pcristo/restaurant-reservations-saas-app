@@ -1,0 +1,6 @@
+# Bun configuration file
+# https://bun.sh/docs/runtime/bunfig
+
+[install]
+# Ensure lockfile is saved and maintained as bun.lock
+lockfile = { save = true }
