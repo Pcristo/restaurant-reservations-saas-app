@@ -551,15 +551,23 @@ export const SuperAdminRestaurants: React.FC = () => {
                   </td>
 
                   <td className="py-3.5 px-4">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium capitalize ${
-                      r.status === 'active' 
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' 
-                        : r.status === 'trial'
-                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                        : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                    }`}>
-                      {r.status}
-                    </span>
+                    <div className="flex flex-col gap-1 items-start">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium capitalize ${
+                        r.status === 'active' 
+                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' 
+                          : r.status === 'trial'
+                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                          : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                      }`}>
+                        {r.status}
+                      </span>
+                      {r.maintenanceModeEnabled && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                          Maintenance
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   <td className="py-3.5 px-4">
@@ -911,11 +919,17 @@ export const SuperAdminRestaurants: React.FC = () => {
                   <Store size={18} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2 flex-wrap">
                     <span>Edit Restaurant Details</span>
                     <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">
                       /r/{editingRestaurant.slug}
                     </span>
+                    {editingRestaurant.maintenanceModeEnabled && (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        Maintenance Active
+                      </span>
+                    )}
                   </h2>
                   <p className="text-xs text-slate-400">
                     Update profile, contact details, location, subscription, and admin account.
@@ -1087,6 +1101,59 @@ export const SuperAdminRestaurants: React.FC = () => {
                       placeholder="Brief description of the restaurant, ambiance, and dining specialties..."
                       className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
                     />
+                  </div>
+
+                  {/* Maintenance Mode setting for this specific restaurant */}
+                  <div className={`p-4 rounded-xl border transition-colors duration-200 space-y-3 ${
+                    editingRestaurant.maintenanceModeEnabled 
+                      ? 'bg-amber-950/20 border-amber-500/40' 
+                      : 'bg-slate-900 border-slate-800'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-200 text-xs">Maintenance Mode</span>
+                          {editingRestaurant.maintenanceModeEnabled && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                              Active for {editingRestaurant.name || 'this restaurant'}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Disable public booking exclusively for this specific restaurant (/r/{editingRestaurant.slug}) and display its maintenance screen. Other restaurants remain completely unaffected.
+                        </p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-4">
+                        <input
+                          type="checkbox"
+                          checked={editingRestaurant.maintenanceModeEnabled ?? false}
+                          onChange={(e) => setEditingRestaurant({
+                            ...editingRestaurant,
+                            maintenanceModeEnabled: e.target.checked
+                          })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                      </label>
+                    </div>
+
+                    {editingRestaurant.maintenanceModeEnabled && (
+                      <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 flex items-center justify-between gap-2">
+                        <span>
+                          Reservations are currently paused for <strong>{editingRestaurant.name}</strong> (/r/{editingRestaurant.slug}).
+                        </span>
+                        <a
+                          href={`/r/${editingRestaurant.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[10px] font-semibold flex items-center gap-1 transition-colors"
+                        >
+                          <span>Preview Screen</span>
+                          <ExternalLink size={10} />
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

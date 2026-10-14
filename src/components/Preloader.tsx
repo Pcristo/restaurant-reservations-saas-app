@@ -4,7 +4,7 @@ import { useSettings } from '../hooks/useSettings';
 import { useLanguage } from '../hooks/useLanguage';
 import { getOptimizedUrl, cn } from '../lib/utils';
 import { APP_CONFIG } from '../data/appConfig';
-import zarcoLogo1 from '../assets/developer/zarco_logo_1.png';
+import zarcoLogo1 from '../assets/developer/zarco_logo_1_no_bg.png';
 
 const Preloader: React.FC = () => {
   const { settings, loading } = useSettings();

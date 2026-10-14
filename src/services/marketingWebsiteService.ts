@@ -197,12 +197,16 @@ export async function getMarketingWebsiteSettings(): Promise<MarketingWebsiteSet
   return cached || DEFAULT_MARKETING_SETTINGS;
 }
 
+export type DeepPartialMarketing<T> = {
+  [P in keyof T]?: T[P] extends (infer U)[] ? T[P] : T[P] extends object ? DeepPartialMarketing<T[P]> : T[P];
+};
+
 /**
  * Updates marketing website settings in Firestore `settings/marketing_website`
  * and updates local cache.
  */
 export async function updateMarketingWebsiteSettings(
-  settings: Partial<MarketingWebsiteSettings>
+  settings: DeepPartialMarketing<MarketingWebsiteSettings>
 ): Promise<MarketingWebsiteSettings> {
   const current = await getMarketingWebsiteSettings();
   const updated: MarketingWebsiteSettings = {

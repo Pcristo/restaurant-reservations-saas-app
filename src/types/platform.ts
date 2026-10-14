@@ -56,6 +56,8 @@ export interface PlatformSettings {
   recaptchaSiteKey?: string;
   recaptchaSecretKey?: string;
   googleMapsApiKey?: string;
+  developingModeEnabled?: boolean;
+  developingPassword?: string;
 
   saasName: string;
   platformUrl: string;

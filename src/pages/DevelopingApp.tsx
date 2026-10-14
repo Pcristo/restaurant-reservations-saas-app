@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { useSettings } from '../hooks/useSettings';
 import { useLanguage } from '../hooks/useLanguage';
 import { Lock, ArrowRight, Eye, EyeOff, Globe } from 'lucide-react';
 import { cn } from '../lib/utils';
 import logoZ from '../assets/developer/zarco_logo_z_no_bg.png';
-import logo1 from '../assets/developer/zarco_logo_1.png';
+import logo1 from '../assets/developer/zarco_logo_1_no_bg.png';
 import zarcoZLogo from '../assets/developer/zarco_Z-no_bg.png';
 import { APP_CONFIG } from '../data/appConfig';
 
@@ -13,26 +12,33 @@ interface DevelopingAppProps {
 }
 
 export default function DevelopingApp({ onUnlock }: DevelopingAppProps) {
-  const { settings } = useSettings();
   const { language, setLanguage } = useLanguage();
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [logoLoaded, setLogoLoaded] = useState(false);
-
   const [logoSrc, setLogoSrc] = useState<string | null>(logo1);
-
-  const restaurantName = settings?.name || APP_CONFIG.appName;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!settings?.developingPassword) {
+    let platformPassword = '';
+    try {
+      const raw = localStorage.getItem('dinemaster_platform_settings');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        platformPassword = parsed.developingPassword || '';
+      }
+    } catch {}
+
+    const targetPassword = platformPassword;
+
+    if (!targetPassword) {
       // If no password is set, allow access
       onUnlock();
       return;
     }
 
-    if (password === settings.developingPassword) {
+    if (password === targetPassword) {
       onUnlock();
     } else {
       setError(
@@ -177,13 +183,19 @@ export default function DevelopingApp({ onUnlock }: DevelopingAppProps) {
         <div>
           © 2026 {APP_CONFIG.companyName}. {language === 'pt' ? 'Todos os direitos reservados.' : 'All rights reserved.'}
         </div>
-        {zarcoZLogo && (
+        <a 
+          href="https://zarcostudios.com/" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity mt-1"
+          aria-label="Zarco Studios"
+        >
           <img 
-            src={zarcoZLogo} 
-            alt="Zarco Z Logo" 
-            className="h-10 w-auto opacity-50 hover:opacity-90 transition-opacity mt-1" 
+            src={logo1} 
+            alt="Zarco Studios" 
+            className="h-6 w-auto object-contain" 
           />
-        )}
+        </a>
       </div>
     </div>
   );

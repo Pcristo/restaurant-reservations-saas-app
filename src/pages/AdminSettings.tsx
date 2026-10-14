@@ -5,7 +5,7 @@ import { useSettings } from '../hooks/useSettings';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../hooks/useLanguage';
 import { format, parseISO, addDays } from 'date-fns';
-import { ChevronUp, MoreVertical, Save, Image as ImageIcon, Clock, MapPin, Phone, Mail, Plus, Trash2, MessageCircle, Globe, Music2, Share2, Calendar, Bell, Video, Copy, ExternalLink, Map, Lock, Unlock, Edit, RotateCcw, Trash, ArrowLeft, Cloud, Database, Eye, EyeOff, ChevronDown, Search, ChevronLeft, ChevronRight, X, ShieldCheck, Palette as PaletteIcon } from 'lucide-react';
+import { ChevronUp, MoreVertical, Save, Image as ImageIcon, Clock, MapPin, Phone, Mail, Plus, Trash2, MessageCircle, Globe, Music2, Share2, Calendar, Bell, Video, Copy, ExternalLink, Map, Lock, Unlock, Edit, RotateCcw, Trash, ArrowLeft, Cloud, Database, Eye, EyeOff, ChevronDown, Search, ChevronLeft, ChevronRight, X, ShieldCheck, Palette as PaletteIcon, AlertTriangle } from 'lucide-react';
 import { useReservations } from '../hooks/useReservations';
 import { useCustomers } from '../hooks/useCustomers';
 import { DAYS_OF_WEEK } from '../constants';
@@ -33,9 +33,9 @@ dayjs.extend(customParseFormat);
 export default function AdminSettings() {
   const { slug } = useParams<{ slug?: string }>();
   const { tenant } = useTenant();
-  const { settings, updateSettings, loading } = useSettings();
   const { isAdmin, user } = useAuth();
   const currentSlug = slug || tenant?.slug || user?.restaurantId || (user?.restaurantIds && user.restaurantIds[0]);
+  const { settings, updateSettings, loading } = useSettings(currentSlug || slug || tenant?.id);
   const adminBase = currentSlug ? `/r/${currentSlug}/admin` : '/admin';
   const isSuperAdmin = isUserSuperAdmin(user?.email);
   const { t, language } = useLanguage();
@@ -79,7 +79,6 @@ export default function AdminSettings() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showResetAccordion, setShowResetAccordion] = useState(false);
   const [showHeroAccordion, setShowHeroAccordion] = useState(false);
-  const [showAdminDevelopingPassword, setShowAdminDevelopingPassword] = useState(false);
   const [testEmailRecipient, setTestEmailRecipient] = useState('');
   const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
   const [testEmailResult, setTestEmailResult] = useState<{ success?: boolean; message?: string } | null>(null);
@@ -490,10 +489,21 @@ export default function AdminSettings() {
           : "bg-white/80 border-b border-gray-100/50"
       )}>
         <div className="flex flex-col">
-          <h1 className={cn(
-            "text-3xl font-bold transition-colors duration-300",
-            settings?.theme === 'dark' ? "text-white" : "text-gray-900"
-          )}>{t('settings.title')}</h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className={cn(
+              "text-3xl font-bold transition-colors duration-300",
+              settings?.theme === 'dark' ? "text-white" : "text-gray-900"
+            )}>{t('settings.title')}</h1>
+            {Boolean(formData?.maintenanceModeEnabled) && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                <span>{language === 'pt' ? 'Manutenção Ativa' : 'Maintenance Active'}</span>
+                {currentSlug && (
+                  <span className="text-[10px] font-mono opacity-80">(/r/{currentSlug})</span>
+                )}
+              </span>
+            )}
+          </div>
           <p className="text-sm text-gray-500 mt-1">{t('settings.desc')}</p>
         </div>
         <div className="flex items-center justify-end gap-3 max-[500px]:flex-col max-[500px]:items-end w-full md:w-auto">
@@ -533,6 +543,43 @@ export default function AdminSettings() {
           </button>
         </div>
       </div>
+
+      {/* Active Maintenance Mode Scoped Notice */}
+      {Boolean(formData?.maintenanceModeEnabled) && (
+        <div className="mb-6 p-4 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400 shrink-0">
+              <Lock size={18} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-amber-300 text-xs">
+                  {language === 'pt' ? 'Modo de Manutenção Ativo Exclusivamente Para Este Restaurante' : 'Maintenance Mode Active Exclusively For This Restaurant'}
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  /r/{currentSlug || 'restaurant'}
+                </span>
+              </div>
+              <p className="text-[11.5px] text-amber-200/80 mt-0.5">
+                {language === 'pt'
+                  ? `As reservas online estão pausadas exclusivamente para "${formData?.name || 'este restaurante'}". Os outros restaurantes da plataforma continuam a operar normalmente.`
+                  : `Online bookings are paused exclusively for "${formData?.name || 'this restaurant'}". Other restaurants on the platform remain completely unaffected.`}
+              </p>
+            </div>
+          </div>
+          {currentSlug && (
+            <a
+              href={`/r/${currentSlug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-colors flex items-center gap-1.5 self-end sm:self-center shrink-0 cursor-pointer shadow-sm"
+            >
+              <span>{language === 'pt' ? 'Ver Página Pública' : 'Preview Booking Page'}</span>
+              <ExternalLink size={12} />
+            </a>
+          )}
+        </div>
+      )}
 
       {/* SaaS Navigation Tabs */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 dark:border-gray-800 pb-3">
@@ -2411,18 +2458,26 @@ export default function AdminSettings() {
               </div>
             </div>
 
-            {/* Pages & Maintenance */}
+            {/* Restaurant Maintenance Mode */}
             <div className={cn(
               "p-4 rounded-xl border space-y-4 pt-6 transition-colors duration-300",
               settings?.theme === 'dark' ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-100"
             )}>
-              <h3 className={cn(
-                "text-sm font-bold flex items-center gap-2 transition-colors duration-300",
-                settings?.theme === 'dark' ? "text-white" : "text-gray-900"
-              )}>
-                <Lock size={16} className="text-amber-600" />
-                {language === 'pt' ? 'Páginas e Manutenção' : 'Pages & Maintenance'}
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className={cn(
+                  "text-sm font-bold flex items-center gap-2 transition-colors duration-300",
+                  settings?.theme === 'dark' ? "text-white" : "text-gray-900"
+                )}>
+                  <Lock size={16} className="text-amber-600" />
+                  {language === 'pt' ? 'Modo de Manutenção do Restaurante' : 'Restaurant Maintenance Mode'}
+                </h3>
+                {formData.maintenanceModeEnabled && (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-500 border border-amber-500/30 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    {language === 'pt' ? 'Manutenção Ativa' : 'Maintenance Active'}
+                  </span>
+                )}
+              </div>
               
               <div className="space-y-4">
                 <div className={cn(
@@ -2435,8 +2490,8 @@ export default function AdminSettings() {
                     </h4>
                     <p className="text-xs text-gray-500 mt-1">
                       {language === 'pt' 
-                        ? 'Desativar as reservas públicas e exibir uma página de manutenção para os clientes.' 
-                        : 'Disable public booking and display a maintenance page to customers.'}
+                        ? 'Desativar as reservas públicas e exibir uma página de manutenção exclusiva para este restaurante.' 
+                        : 'Disable public booking and display a custom maintenance page exclusively for this restaurant.'}
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -2455,6 +2510,37 @@ export default function AdminSettings() {
 
                 {formData.maintenanceModeEnabled && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                    {/* Active Restaurant Scoped Alert Banner */}
+                    <div className="p-3.5 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-200 flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-2.5">
+                        <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                        <div className="text-xs space-y-1">
+                          <div className="flex items-center gap-2 font-bold text-amber-300">
+                            <span>{language === 'pt' ? 'Manutenção Ativa Para Este Restaurante' : 'Maintenance Active For This Restaurant'}</span>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                              /r/{currentSlug || 'restaurant'}
+                            </span>
+                          </div>
+                          <p className="text-amber-200/80 leading-relaxed text-[11.5px]">
+                            {language === 'pt'
+                              ? `As reservas online estão pausadas exclusivamente para "${formData.name || 'este restaurante'}". Os clientes que acederem à página pública verão a sua mensagem de manutenção. O portal SaaS principal e outros restaurantes continuam a funcionar normalmente.`
+                              : `Online reservations are paused exclusively for "${formData.name || 'this restaurant'}". Customers visiting your public booking page will see your custom maintenance screen. The main SaaS marketing platform and other restaurants remain unaffected.`}
+                          </p>
+                        </div>
+                      </div>
+                      {currentSlug && (
+                        <a
+                          href={`/r/${currentSlug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[11px] font-semibold shrink-0 transition-colors flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>{language === 'pt' ? 'Ver Página' : 'Preview'}</span>
+                          <ExternalLink size={12} />
+                        </a>
+                      )}
+                    </div>
+
                     <div className="flex flex-col gap-4">
                       <div>
                         <label className="block text-xs font-medium text-gray-500 mb-1">
@@ -2553,66 +2639,6 @@ export default function AdminSettings() {
 
                   </div>
                 )}
-
-                {/* Developing Mode */}
-                <div className={cn(
-                  "flex flex-col gap-4 p-4 rounded-xl border transition-colors duration-300",
-                  settings?.theme === 'dark' ? "bg-gray-950 border-gray-800" : "bg-white border-gray-200"
-                )}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-sm font-bold">
-                        {language === 'pt' ? 'Modo de Desenvolvimento' : 'Developing Mode'}
-                      </h4>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {language === 'pt' 
-                          ? 'Ativar uma tela de bloqueio com palavra-passe que cobre todo o website.' 
-                          : 'Activate a password-protected lock screen covering the entire website.'}
-                      </p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={formData.developingModeEnabled ?? false} 
-                        onChange={(e) => setFormData({ ...formData, developingModeEnabled: e.target.checked })}
-                        className="sr-only peer"
-                      />
-                      <div className={cn(
-                        "w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600",
-                        settings?.theme === 'dark' ? "bg-gray-800 peer-focus:ring-amber-900" : "bg-gray-200 peer-focus:ring-amber-300"
-                      )}></div>
-                    </label>
-                  </div>
-
-                  {formData.developingModeEnabled && (
-                    <div className="space-y-3 pt-3 border-t border-dashed border-gray-200/50 dark:border-gray-800/50 animate-in fade-in slide-in-from-top-2 duration-200">
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-500 mb-1">
-                          {language === 'pt' ? 'Palavra-passe de Acesso' : 'Access Password'}
-                        </label>
-                        <div className="relative">
-                          <input 
-                            type={showAdminDevelopingPassword ? "text" : "password"}
-                            value={formData.developingPassword || ''}
-                            onChange={(e) => setFormData({ ...formData, developingPassword: e.target.value })}
-                            placeholder={language === 'pt' ? 'Palavra-passe para desbloquear a app' : 'Password to unlock the app'}
-                            className={cn(
-                              "w-full pl-3 pr-10 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm transition-colors duration-300",
-                              settings?.theme === 'dark' ? "bg-gray-900 border-gray-700 text-white" : "bg-white border-gray-300 text-gray-900"
-                            )}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowAdminDevelopingPassword(!showAdminDevelopingPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer p-0.5"
-                          >
-                            {showAdminDevelopingPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
               {/* Floor Plan Layout Section */}
               <div className={cn(
                 "p-4 rounded-xl border mt-3 space-y-4 transition-colors duration-300",

@@ -219,8 +219,6 @@ export interface RestaurantSettings {
   maintenanceMessageEn?: string;
   maintenanceShowHero?: boolean;
   maintenanceHeroImageUrl?: string;
-  developingModeEnabled?: boolean;
-  developingPassword?: string;
   gracePeriod?: number;
   enableBookingNumber?: boolean;
   bookingNumberPrefix?: string;
@@ -347,6 +345,8 @@ export interface Restaurant {
   openingHours?: Record<string, any>;
   primaryDomain?: string;
   domains?: DomainRecord[];
+  maintenanceModeEnabled?: boolean;
+  maintenanceMessage?: string;
   stats?: {
     totalReservations: number;
     totalCustomers: number;

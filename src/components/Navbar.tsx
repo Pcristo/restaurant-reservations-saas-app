@@ -217,7 +217,22 @@ export default function Navbar() {
       {/* Secondary Admin Top Bar */}
       {isAdmin && (
         <div className="bg-gray-900 text-gray-400 py-1.5 px-4 sm:px-6 lg:px-8 border-b border-gray-800">
-          <div className={cn("mx-auto flex justify-end items-center gap-6 text-[10px] font-bold uppercase tracking-widest", settings?.containerWidth === '1480px' ? "w-full max-w-[1480px]" : "w-full max-w-[1267px]")}>
+          <div className={cn("mx-auto flex justify-between items-center gap-6 text-[10px] font-bold uppercase tracking-widest", settings?.containerWidth === '1480px' ? "w-full max-w-[1480px]" : "w-full max-w-[1267px]")}>
+            <div className="flex items-center">
+              {Boolean(
+                (settings?.maintenanceModeEnabled && (!restaurantSlug || settings.restaurantId === restaurantSlug || settings.id === restaurantSlug || tenant?.slug === restaurantSlug)) ||
+                (tenant?.tenant?.maintenanceModeEnabled && (!restaurantSlug || tenant?.slug === restaurantSlug || tenant?.targetRestaurantId === restaurantSlug || tenant?.tenant?.id === restaurantSlug))
+              ) && (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30 normal-case tracking-normal">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  <span>{language === 'pt' ? 'Manutenção Ativa' : 'Maintenance Active'}</span>
+                  {restaurantSlug && (
+                    <span className="text-[9px] font-mono opacity-80">(/r/{restaurantSlug})</span>
+                  )}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-6">
             <Link 
               to={`${adminBase}/insights`} 
               onClick={(e) => handleNavigationAttempt(e, `${adminBase}/insights`)}
@@ -239,6 +254,7 @@ export default function Navbar() {
             >
               <Settings size={12} className="text-gray-500" /> {t('nav.settings')}
             </Link>
+            </div>
           </div>
         </div>
       )}

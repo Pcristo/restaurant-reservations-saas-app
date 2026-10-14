@@ -123,10 +123,10 @@ export default function AdminDashboard() {
   const { slug } = useParams<{ slug?: string }>();
   const location = useLocation();
   const { user, isStaff, isAdmin, loading: authLoading } = useAuth();
-  const { settings } = useSettings();
   const tenant = useTenantSafe();
   const rawSlug = slug || tenant?.slug || user?.restaurantId || (user?.restaurantIds && user.restaurantIds[0]) || 'bela-italia';
   const currentSlug = rawSlug.toLowerCase() === 'bella-italia' ? 'bela-italia' : rawSlug;
+  const { settings } = useSettings(currentSlug);
   const isStaffRoute = location.pathname.includes('/staff');
   const adminBase = isStaffRoute ? `/r/${currentSlug}/staff` : `/r/${currentSlug}/admin`;
   const { reservations, updateReservation, loading: resLoading } = useReservations({ includeAll: true });
@@ -1896,6 +1896,41 @@ const FloorPlanFilterDropdown: React.FC<{
                         </div>
                    </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Maintenance Mode Notice for This Restaurant */}
+          {settings?.maintenanceModeEnabled && (
+            <div className="mb-6 p-4 rounded-2xl border border-amber-500/40 bg-amber-500/10 text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
+                  <Lock size={18} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-amber-300 text-sm">
+                      {language === 'pt' ? 'Modo de Manutenção Ativo' : 'Maintenance Mode Active'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      /r/{rawSlug}
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-200/80 mt-0.5">
+                    {language === 'pt'
+                      ? `As reservas online estão pausadas exclusivamente para este restaurante (${settings?.name || 'restaurante'}). Os clientes verão a sua página de manutenção.`
+                      : `Online bookings are paused exclusively for this restaurant (${settings?.name || 'this restaurant'}). Customers will see your custom maintenance screen.`}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                <Link
+                  to={`${adminBase}/settings`}
+                  className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <Settings size={13} />
+                  <span>{language === 'pt' ? 'Gerir Definições' : 'Manage Settings'}</span>
+                </Link>
               </div>
             </div>
           )}

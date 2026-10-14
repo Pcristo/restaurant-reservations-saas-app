@@ -58,8 +58,7 @@ export const DEFAULT_SETTINGS = {
   phoneVerificationEnabled: false,
   gracePeriod: 15,
   enableBookingNumber: true,
-  developingModeEnabled: false,
-  developingPassword: '',
+  maintenanceModeEnabled: false,
   region: 'portugal',
   seo: {
     seoTitle: '',

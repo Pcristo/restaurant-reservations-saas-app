@@ -11,19 +11,27 @@ export function useSettings(restaurantIdOverride?: string) {
   const tenantCtx = useTenantSafe();
   const activeRestaurant = tenantCtx?.tenant;
 
-  // Resolve target restaurant ID: explicit override -> current tenant -> /admin management route only
+  // Resolve target restaurant ID: explicit override -> current tenant -> URL route slug -> /admin management route only
   const targetRestaurantId = useMemo(() => {
     if (restaurantIdOverride) return restaurantIdOverride;
     if (activeRestaurant?.id) return activeRestaurant.id;
-    // Only resolve stored restaurant ID if inside admin management context
-    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
-      const stored = localStorage.getItem('eata_active_restaurant_id') || localStorage.getItem('active_restaurant_id');
-      if (stored) return stored;
+    // Extract restaurant slug directly from /r/:slug in route path if present
+    if (typeof window !== 'undefined') {
+      const match = window.location.pathname.match(/^\/r\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        const rawSlug = match[1].toLowerCase();
+        return rawSlug === 'bella-italia' ? 'bela-italia' : rawSlug;
+      }
+      // Only resolve stored restaurant ID if inside admin management context
+      if (window.location.pathname.startsWith('/admin') || window.location.pathname.includes('/admin')) {
+        const stored = localStorage.getItem('eata_active_restaurant_id') || localStorage.getItem('active_restaurant_id');
+        if (stored) return stored;
+      }
     }
     return '';
   }, [restaurantIdOverride, activeRestaurant?.id]);
 
-  const cacheKey = `cached_restaurant_settings_${targetRestaurantId}`;
+  const cacheKey = targetRestaurantId ? `cached_restaurant_settings_${targetRestaurantId}` : 'cached_restaurant_settings';
 
   // Default fallback seeded with active restaurant info or APP_CONFIG
   const fallbackSettings = useMemo<RestaurantSettings>(() => {
@@ -33,6 +41,13 @@ export function useSettings(restaurantIdOverride?: string) {
     const restaurantEmail = activeRestaurant?.email || activeRestaurant?.ownerEmail || DEFAULT_SETTINGS.email || APP_CONFIG.email;
     const restaurantTimezone = activeRestaurant?.timezone || DEFAULT_SETTINGS.timezone || 'Europe/Dublin';
     const restaurantWebsite = activeRestaurant?.website || DEFAULT_SETTINGS.websiteUrl || `https://${APP_CONFIG.companyName.toLowerCase()}.com`;
+
+    // Strict restaurant scoping for maintenance mode
+    const isTargetActiveRestaurant = Boolean(
+      targetRestaurantId && activeRestaurant && (activeRestaurant.id === targetRestaurantId || activeRestaurant.slug === targetRestaurantId)
+    );
+    const maintenanceEnabled = isTargetActiveRestaurant ? Boolean(activeRestaurant?.maintenanceModeEnabled) : false;
+    const maintenanceMessage = isTargetActiveRestaurant ? (activeRestaurant?.maintenanceMessage || '') : '';
 
     return {
       ...DEFAULT_SETTINGS,
@@ -45,6 +60,8 @@ export function useSettings(restaurantIdOverride?: string) {
       email: restaurantEmail,
       timezone: restaurantTimezone,
       websiteUrl: restaurantWebsite,
+      maintenanceModeEnabled: maintenanceEnabled,
+      maintenanceMessage: maintenanceMessage,
       description: activeRestaurant?.seo?.metaDescription || `${restaurantName} is pleased to welcome you for an exceptional dining experience.`,
       descriptionEn: activeRestaurant?.seo?.metaDescription || `${restaurantName} is pleased to welcome you for an exceptional dining experience.`,
       primaryColor: activeRestaurant?.branding?.primaryColor || (DEFAULT_SETTINGS as any).primaryColor || '#f59e0b',
@@ -92,10 +109,23 @@ export function useSettings(restaurantIdOverride?: string) {
       if (!isMounted) return;
 
       if (docSnap.exists()) {
+        const docData = docSnap.data() || {};
+        const isTargetActiveRestaurant = Boolean(
+          targetRestaurantId && activeRestaurant && (activeRestaurant.id === targetRestaurantId || activeRestaurant.slug === targetRestaurantId)
+        );
+        const isMaintenance = docData.maintenanceModeEnabled !== undefined
+          ? Boolean(docData.maintenanceModeEnabled)
+          : (isTargetActiveRestaurant ? Boolean(activeRestaurant?.maintenanceModeEnabled) : false);
+
         const data = { 
+          ...fallbackSettings,
+          ...docData,
           id: docSnap.id, 
-          restaurantId: targetRestaurantId, 
-          ...(docSnap.data() || {}) 
+          restaurantId: targetRestaurantId,
+          maintenanceModeEnabled: isMaintenance,
+          ...(docData.maintenanceMessage !== undefined 
+            ? { maintenanceMessage: docData.maintenanceMessage } 
+            : (isTargetActiveRestaurant && activeRestaurant?.maintenanceMessage ? { maintenanceMessage: activeRestaurant.maintenanceMessage } : {})),
         } as unknown as RestaurantSettings;
 
         setSettings(data);
@@ -181,6 +211,8 @@ export function useSettings(restaurantIdOverride?: string) {
           email: newSettings.email || '',
           timezone: newSettings.timezone || 'Europe/Dublin',
           openingHours: newSettings.openingHours,
+          maintenanceModeEnabled: Boolean(newSettings.maintenanceModeEnabled),
+          ...(newSettings.maintenanceMessage !== undefined ? { maintenanceMessage: newSettings.maintenanceMessage } : {}),
           branding: {
             ...(activeRestaurant?.branding || {}),
             primaryColor: newSettings.primaryColor || newSettings.branding?.primaryColor || '#f59e0b',

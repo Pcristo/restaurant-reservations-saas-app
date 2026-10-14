@@ -18,6 +18,7 @@ import { MarketingSEOHead } from '../components/MarketingSEOHead';
 import { useLanguage } from '../hooks/useLanguage';
 import { cn } from '../lib/utils';
 import restaurantManagerVideo from '../assets/videos/restaurant_manager_video.mp4';
+import ZarcoFooter from '../components/extra/ZarcoFooterTemplate';
 
 interface MarketingLandingPageProps {
   settings?: MarketingWebsiteSettings;
@@ -1428,6 +1429,8 @@ export default function MarketingLandingPage({ settings: initialSettings, initia
               )}
             </div>
           </div>
+
+          <ZarcoFooter lang={isPt ? "pt" : "en"} />
         </div>
       </footer>
     </div>

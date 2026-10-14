@@ -111,6 +111,8 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   recaptchaSiteKey: '',
   recaptchaSecretKey: '',
   googleMapsApiKey: '',
+  developingModeEnabled: false,
+  developingPassword: '',
   featureFlags: {
     customDomains: true,
     advancedSEO: true,

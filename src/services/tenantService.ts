@@ -533,6 +533,20 @@ export async function updateRestaurant(
 
   await updateDoc(docRef, updatePayload);
 
+  // Sync maintenanceModeEnabled to restaurant settings if modified
+  if (data.maintenanceModeEnabled !== undefined) {
+    try {
+      await setDoc(doc(db, 'settings', id), {
+        id,
+        restaurantId: id,
+        maintenanceModeEnabled: data.maintenanceModeEnabled,
+        updatedAt: now,
+      }, { merge: true });
+    } catch (sErr) {
+      console.warn(`[TenantService] Notice updating settings document for ${id}:`, sErr);
+    }
+  }
+
   // Sync owner user record if owner fields are modified
   if (data.ownerEmail || data.ownerName || data.ownerId) {
     try {

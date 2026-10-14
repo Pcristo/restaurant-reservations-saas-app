@@ -54,9 +54,12 @@ import { SuperAdminAdmins } from '../../pages/superadmin/SuperAdminAdmins';
 
 import MarketingLandingPage from '../../pages/MarketingLandingPage';
 import { getMarketingWebsiteSettings, DEFAULT_MARKETING_SETTINGS } from '../../services/marketingWebsiteService';
-import { MarketingWebsiteSettings } from '../../types';
+import { MarketingWebsiteSettings, PlatformSettings } from '../../types';
+import { DEFAULT_PLATFORM_SETTINGS } from '../../data/plans';
 import { updateFavicon, isPlatformHost, isTenantSubdomain } from '../../lib/utils';
 import { APP_CONFIG } from '../../data/appConfig';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 import { 
   ProtectedRoute, 
@@ -95,6 +98,27 @@ export function AppRoutes() {
   const location = useLocation();
   const { language } = useLanguage();
 
+  const [platformSettings, setPlatformSettings] = useState<PlatformSettings>(() => {
+    try {
+      const cached = localStorage.getItem('dinemaster_platform_settings');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return DEFAULT_PLATFORM_SETTINGS;
+  });
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'platform_settings', 'general'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as PlatformSettings;
+        setPlatformSettings(data);
+        try {
+          localStorage.setItem('dinemaster_platform_settings', JSON.stringify(data));
+        } catch {}
+      }
+    });
+    return () => unsub();
+  }, []);
+
   const [marketingSettings, setMarketingSettings] = useState<MarketingWebsiteSettings>(() => {
     try {
       const cached = localStorage.getItem('dinemaster_marketing_settings');
@@ -111,23 +135,23 @@ export function AppRoutes() {
   const prevPasswordRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    if (settings) {
-      if (!settings.developingModeEnabled) {
+    if (platformSettings) {
+      if (!platformSettings.developingModeEnabled) {
         sessionStorage.removeItem('app_developing_unlocked');
         setDevelopingUnlocked(false);
       } else {
         if (
           prevEnabledRef.current === false ||
-          (prevPasswordRef.current !== undefined && settings.developingPassword !== prevPasswordRef.current)
+          (prevPasswordRef.current !== undefined && platformSettings.developingPassword !== prevPasswordRef.current)
         ) {
           sessionStorage.removeItem('app_developing_unlocked');
           setDevelopingUnlocked(false);
         }
       }
-      prevEnabledRef.current = settings.developingModeEnabled;
-      prevPasswordRef.current = settings.developingPassword;
+      prevEnabledRef.current = platformSettings.developingModeEnabled;
+      prevPasswordRef.current = platformSettings.developingPassword;
     }
-  }, [settings?.developingModeEnabled, settings?.developingPassword]);
+  }, [platformSettings?.developingModeEnabled, platformSettings?.developingPassword]);
 
   const { toasts } = useToasterStore();
 
@@ -218,39 +242,6 @@ export function AppRoutes() {
     }
   }, [settings, tenant, location.pathname, user?.restaurantId]);
 
-  const isLoginPage = location.pathname === '/login';
-  const isAdminRoute = location.pathname.startsWith('/admin');
-  const isStaffOrAdmin = isAdmin || isStaff;
-  const isDevelopingActive = settings?.developingModeEnabled && !developingUnlocked && !isLoginPage && !isAdminRoute;
-  const isMaintenanceActive = settings?.maintenanceModeEnabled && !isStaffOrAdmin && !isLoginPage;
-
-  if (isDevelopingActive) {
-    return (
-      <>
-        <AnimatePresence>
-          {showPreloader && <Preloader />}
-        </AnimatePresence>
-        <ScrollToTop />
-        <DevelopingApp onUnlock={() => {
-          setDevelopingUnlocked(true);
-          sessionStorage.setItem('app_developing_unlocked', 'true');
-        }} />
-      </>
-    );
-  }
-
-  if (isMaintenanceActive) {
-    return (
-      <>
-        <AnimatePresence>
-          {showPreloader && <Preloader />}
-        </AnimatePresence>
-        <ScrollToTop />
-        <Maintenance />
-      </>
-    );
-  }
-
   if (location.pathname.startsWith('/app/super-admin')) {
     return (
       <Routes>
@@ -274,6 +265,67 @@ export function AppRoutes() {
           <Route path="*" element={<Navigate to="/app/super-admin" replace />} />
         </Route>
       </Routes>
+    );
+  }
+
+  const isLoginPage = location.pathname === '/login';
+  const isAdminRoute = location.pathname.startsWith('/admin') || location.pathname.includes('/admin');
+  const isStaffOrAdmin = isAdmin || isStaff;
+
+  // Platform Development Mode configured via Super Admin dashboard
+  const isDevelopingActive = Boolean(platformSettings?.developingModeEnabled) && !developingUnlocked && !isLoginPage;
+
+  if (isDevelopingActive) {
+    return (
+      <>
+        <AnimatePresence>
+          {showPreloader && <Preloader />}
+        </AnimatePresence>
+        <ScrollToTop />
+        <DevelopingApp onUnlock={() => {
+          setDevelopingUnlocked(true);
+          sessionStorage.setItem('app_developing_unlocked', 'true');
+        }} />
+      </>
+    );
+  }
+
+  // Determine whether current view is a restaurant customer booking route
+  const searchParams = new URLSearchParams(location.search);
+  const isExplicitBooking = searchParams.get('view') === 'booking' || searchParams.has('restaurant');
+  const host = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
+  const isPlatform = isPlatformHost(host);
+  const isSubdomain = isTenantSubdomain(host);
+  const isCustomDomain = !isPlatform;
+
+  // Maintenance mode applies ONLY to the specific restaurant's public booking routes
+  const isRestaurantRoute = location.pathname.startsWith('/r/') || 
+    location.pathname === '/book' || 
+    location.pathname === '/reserve' || 
+    ((isCustomDomain || isSubdomain || isExplicitBooking) && location.pathname === '/');
+
+  const isRestaurantPublicRoute = isRestaurantRoute && !isAdminRoute && !isStaffOrAdmin && !isLoginPage;
+
+  // Maintenance mode applies ONLY for the specific restaurant it applies to:
+  const routeSlugMatch = location.pathname.match(/^\/r\/([a-zA-Z0-9_-]+)/);
+  const routeSlug = routeSlugMatch ? (routeSlugMatch[1].toLowerCase() === 'bella-italia' ? 'bela-italia' : routeSlugMatch[1].toLowerCase()) : '';
+
+  const isTargetRestaurantMaintenance = Boolean(
+    (tenant?.maintenanceModeEnabled && (!routeSlug || routeSlug === tenant.slug || routeSlug === tenant.id)) ||
+    (settings?.maintenanceModeEnabled && (!routeSlug || routeSlug === settings.restaurantId || routeSlug === settings.id || routeSlug === tenant?.slug))
+  );
+
+  const isMaintenanceActive = isRestaurantPublicRoute && isTargetRestaurantMaintenance;
+
+  if (isMaintenanceActive) {
+    return (
+      <>
+        <AnimatePresence>
+          {showPreloader && <Preloader />}
+        </AnimatePresence>
+        <ScrollToTop />
+        <Maintenance />
+      </>
     );
   }
 

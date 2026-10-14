@@ -14,14 +14,26 @@ import {
   Clock, 
   ExternalLink,
   Database,
-  RefreshCw
+  RefreshCw,
+  Lock,
+  Unlock,
+  Eye,
+  EyeOff,
+  Sparkles,
+  Video,
+  LayoutGrid,
+  Save
 } from 'lucide-react';
 import { listAllRestaurants, listAllDomains, listAuditLogs } from '../../services/tenantService';
-import { Restaurant, DomainRecord, AuditLogEntry } from '../../types';
+import { Restaurant, DomainRecord, AuditLogEntry, MarketingWebsiteSettings } from '../../types';
 import { runMultiTenantMigration, MigrationSummary } from '../../lib/migration';
 import { useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'react-hot-toast';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { db } from '../../firebase';
+import { cn } from '../../lib/utils';
+import { getMarketingWebsiteSettings, updateMarketingWebsiteSettings } from '../../services/marketingWebsiteService';
 
 export const SuperAdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -32,18 +44,50 @@ export const SuperAdminDashboard: React.FC = () => {
   const [isMigrating, setIsMigrating] = useState(false);
   const [migrationResult, setMigrationResult] = useState<MigrationSummary | null>(null);
 
+  // Platform Development Mode state
+  const [devModeEnabled, setDevModeEnabled] = useState(false);
+  const [devPassword, setDevPassword] = useState('');
+  const [showDevPassword, setShowDevPassword] = useState(false);
+  const [isSavingDevMode, setIsSavingDevMode] = useState(false);
+
+  // Marketing Hero Section Mode state
+  const [heroMode, setHeroMode] = useState<'existing' | 'video'>('video');
+  const [marketingSettings, setMarketingSettings] = useState<MarketingWebsiteSettings | null>(null);
+
   useEffect(() => {
     async function loadData() {
       setLoading(true);
       try {
-        const [rests, doms, audit] = await Promise.all([
+        const [rests, doms, audit, mkt] = await Promise.all([
           listAllRestaurants(),
           listAllDomains(),
-          listAuditLogs({ limit: 10 })
+          listAuditLogs({ limit: 10 }),
+          getMarketingWebsiteSettings(),
         ]);
         setRestaurants(rests);
         setDomains(doms);
         setLogs(audit);
+        setMarketingSettings(mkt);
+        setHeroMode((mkt.hero?.mode || 'video') as 'existing' | 'video');
+
+        // Initial read of platform settings for development mode
+        try {
+          const platDoc = await getDoc(doc(db, 'platform_settings', 'general'));
+          if (platDoc.exists()) {
+            const data = platDoc.data();
+            setDevModeEnabled(Boolean(data.developingModeEnabled));
+            setDevPassword(data.developingPassword || '');
+          } else {
+            const cached = localStorage.getItem('dinemaster_platform_settings');
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              setDevModeEnabled(Boolean(parsed.developingModeEnabled));
+              setDevPassword(parsed.developingPassword || '');
+            }
+          }
+        } catch (err) {
+          console.warn('Notice loading platform settings:', err);
+        }
       } catch (err) {
         console.error('Failed loading Super Admin metrics:', err);
       } finally {
@@ -51,6 +95,19 @@ export const SuperAdminDashboard: React.FC = () => {
       }
     }
     loadData();
+
+    // Real-time synchronization for Development Mode platform settings
+    const unsubPlatform = onSnapshot(doc(db, 'platform_settings', 'general'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setDevModeEnabled(Boolean(data.developingModeEnabled));
+        setDevPassword(data.developingPassword || '');
+      }
+    }, (err) => {
+      console.warn('Notice onSnapshot platform settings:', err);
+    });
+
+    return () => unsubPlatform();
   }, []);
 
   const totalRestaurants = restaurants.length;
@@ -96,6 +153,58 @@ export const SuperAdminDashboard: React.FC = () => {
       toast.error(`Migration failed: ${err.message || 'Unknown error'}`);
     } finally {
       setIsMigrating(false);
+    }
+  };
+
+  const handleSaveDevMode = async () => {
+    setIsSavingDevMode(true);
+    try {
+      await setDoc(doc(db, 'platform_settings', 'general'), {
+        developingModeEnabled: devModeEnabled,
+        developingPassword: devPassword,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      try {
+        const cachedRaw = localStorage.getItem('dinemaster_platform_settings');
+        const prev = cachedRaw ? JSON.parse(cachedRaw) : {};
+        localStorage.setItem('dinemaster_platform_settings', JSON.stringify({
+          ...prev,
+          developingModeEnabled: devModeEnabled,
+          developingPassword: devPassword
+        }));
+      } catch {}
+
+      toast.success(
+        devModeEnabled
+          ? 'Development Mode ENABLED. Platform is now password protected.'
+          : 'Development Mode DISABLED. Public access is open.'
+      );
+    } catch (err: any) {
+      console.error('Failed to save Development Mode:', err);
+      toast.error(err?.message || 'Failed to save Development Mode');
+    } finally {
+      setIsSavingDevMode(false);
+    }
+  };
+
+  const handleHeroModeChange = async (newMode: 'existing' | 'video') => {
+    setHeroMode(newMode);
+    try {
+      const updated = await updateMarketingWebsiteSettings({
+        hero: {
+          ...(marketingSettings?.hero || {}),
+          mode: newMode
+        }
+      });
+      setMarketingSettings(updated);
+      toast.success(
+        newMode === 'video'
+          ? 'Hero section mode set to Video Background!'
+          : 'Hero section mode set to Existing Hero!'
+      );
+    } catch (err: any) {
+      console.warn('Notice saving hero mode:', err);
     }
   };
 
@@ -158,6 +267,33 @@ export const SuperAdminDashboard: React.FC = () => {
           >
             Dismiss
           </button>
+        </div>
+      )}
+
+      {/* Platform Development Mode Alert Banner */}
+      {devModeEnabled && (
+        <div className="bg-amber-950/40 border border-amber-500/30 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400 shrink-0">
+              <Lock size={18} />
+            </div>
+            <div className="text-xs text-slate-300 space-y-0.5">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-amber-400">Platform Development Lock Screen Active</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  Global Zarco Studios Protection
+                </span>
+              </div>
+              <p className="text-slate-400">
+                All public visitors and guests are presented with the development lock screen. Super Admin dashboard remains accessible.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[11px] font-mono text-amber-300 bg-slate-900 px-2.5 py-1 rounded border border-slate-800">
+              Pass: {devPassword ? '••••••••' : 'No password set'}
+            </span>
+          </div>
         </div>
       )}
 
@@ -230,6 +366,183 @@ export const SuperAdminDashboard: React.FC = () => {
             <span className="text-emerald-400">{activeDomains} Verified</span>
             <span className="text-slate-600">&bull;</span>
             <span className="text-amber-400">{pendingDomains} Pending DNS</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Platform & System Controls: Development Mode and Homepage Hero Mode */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Control 1: Platform Development Mode */}
+        <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4 shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
+                <Lock size={18} />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-white">Platform Development Mode</h2>
+                <p className="text-[11px] text-slate-400">Private development lock screen protection (Zarco Studios)</p>
+              </div>
+            </div>
+            <span className={`text-[11px] font-mono font-bold px-2.5 py-1 rounded-full border ${
+              devModeEnabled 
+                ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' 
+                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+            }`}>
+              {devModeEnabled ? 'Lock Screen Active' : 'Public Access Open'}
+            </span>
+          </div>
+
+          <div className="space-y-3.5 text-xs">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-900 border border-slate-800">
+              <div>
+                <div className="font-semibold text-white">Enable Development Lock Screen</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  When enabled, visitors must enter the access password to use the platform. Super Admin routes remain accessible.
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-4">
+                <input
+                  type="checkbox"
+                  checked={devModeEnabled}
+                  onChange={(e) => setDevModeEnabled(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+              </label>
+            </div>
+
+            {devModeEnabled && (
+              <div className="space-y-2 p-3 rounded-lg bg-slate-900/60 border border-slate-800/80 animate-in fade-in">
+                <label className="block text-[11px] font-medium text-slate-300">
+                  Access Password to Unlock Platform
+                </label>
+                <div className="relative">
+                  <input
+                    type={showDevPassword ? 'text' : 'password'}
+                    value={devPassword}
+                    onChange={(e) => setDevPassword(e.target.value)}
+                    placeholder="Enter access password"
+                    className="w-full pl-3 pr-10 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-amber-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowDevPassword(!showDevPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer p-0.5"
+                  >
+                    {showDevPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-500 font-mono">
+                  Leaving blank allows any user to unlock without password verification.
+                </p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleSaveDevMode}
+                disabled={isSavingDevMode}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
+              >
+                <Save size={13} />
+                <span>{isSavingDevMode ? 'Saving...' : 'Save Development Mode'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Control 2: Homepage Hero Section Mode */}
+        <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4 shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400">
+                <Sparkles size={18} />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-white">Homepage Hero Section Mode</h2>
+                <p className="text-[11px] text-slate-400">Configure public SaaS homepage appearance</p>
+              </div>
+            </div>
+            <span className="text-[11px] font-mono font-bold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
+              {heroMode === 'video' ? 'Video Background Active' : 'Existing Hero Active'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            {/* Option 1: Existing Hero */}
+            <button
+              type="button"
+              onClick={() => handleHeroModeChange('existing')}
+              className={cn(
+                "p-3.5 rounded-xl text-left border transition-all cursor-pointer flex flex-col justify-between",
+                heroMode === 'existing'
+                  ? "border-amber-500 bg-amber-500/10 text-white shadow-md shadow-amber-500/10"
+                  : "border-slate-800 bg-slate-900/60 hover:border-slate-700 text-slate-300"
+              )}
+            >
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-white">
+                    <LayoutGrid className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Existing Hero</span>
+                  </div>
+                  {heroMode === 'existing' && (
+                    <span className="w-2 h-2 rounded-full bg-amber-400 shadow-sm shadow-amber-400/50" />
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Display the original hero section exactly as it is now with the dark background, glow, and inline floor plan mockup.
+                </p>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-slate-800/60 text-[10px] font-mono text-slate-400">
+                Height: Responsive
+              </div>
+            </button>
+
+            {/* Option 2: Video Background */}
+            <button
+              type="button"
+              onClick={() => handleHeroModeChange('video')}
+              className={cn(
+                "p-3.5 rounded-xl text-left border transition-all cursor-pointer flex flex-col justify-between",
+                heroMode === 'video'
+                  ? "border-amber-500 bg-amber-500/10 text-white shadow-md shadow-amber-500/10"
+                  : "border-slate-800 bg-slate-900/60 hover:border-slate-700 text-slate-300"
+              )}
+            >
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-white">
+                    <Video className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Video Background</span>
+                  </div>
+                  {heroMode === 'video' && (
+                    <span className="w-2 h-2 rounded-full bg-amber-400 shadow-sm shadow-amber-400/50" />
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Display the hero section with background video from assets/videos, 50% dark overlay, 100vh height, and transparent navbar.
+                </p>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-slate-800/60 text-[10px] font-mono text-amber-400 font-semibold">
+                Height: 100vh Viewport
+              </div>
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between pt-1 text-[11px] text-slate-400">
+            <span className="truncate">Updates saved and synced to public marketing page automatically</span>
+            <a
+              href="/?preview=true"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-amber-400 hover:text-amber-300 flex items-center gap-1 font-medium shrink-0 ml-2"
+            >
+              <span>View Landing Page</span>
+              <ExternalLink size={11} />
+            </a>
           </div>
         </div>
       </div>

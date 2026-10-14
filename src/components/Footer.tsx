@@ -7,6 +7,7 @@ import { MapPin, Phone, Mail, Clock, Music2, Globe, Map, MessageCircle, Video, L
 import dayjs from 'dayjs';
 import { cn, getOptimizedUrl, formatDisplayTime } from '../lib/utils';
 import { APP_CONFIG } from '../data/appConfig';
+import ZarcoFooter from './extra/ZarcoFooterTemplate';
 
 export default function Footer() {
   const { settings } = useSettings();
@@ -270,6 +271,8 @@ export default function Footer() {
         <div className="mt-12 pt-8 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left text-gray-400 text-sm">
           <p>&copy; {new Date().getFullYear()} {settings?.name || APP_CONFIG.appName}. {t('common.all_rights_reserved')}</p>
         </div>
+
+        <ZarcoFooter lang={language === 'pt' ? 'pt' : 'en'} />
       </div>
     </footer>
   );

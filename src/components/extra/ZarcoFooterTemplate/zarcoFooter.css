@@ -1,0 +1,98 @@
+.zarco-footer {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 10px 15px;
+    box-sizing: border-box;
+    margin-top: 20px;
+}
+
+.zarco-footer-text {
+    margin: 0;
+    color: #777;
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.zarco-footer-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.zarco-footer-logo {
+    display: block;
+    width: 100px;
+    height: auto;
+    object-fit: contain;
+}
+
+/* Light sweep */
+.zarco-footer-link::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 35%;
+    height: 100%;
+    background: linear-gradient(90deg,
+            transparent,
+            rgba(255, 255, 255, 0.75),
+            transparent);
+    transform: skewX(-20deg);
+    animation: zarco-logo-shine 12s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes zarco-logo-shine {
+  0% {
+    left: -100%;
+  }
+
+  25% {
+    left: 130%;
+  }
+
+  100% {
+    left: 130%;
+  }
+}
+
+.zarco-footer-logo:hover {
+    opacity: 0.75;
+    transition: opacity 0.2s ease;
+}
+
+.zarco-footer-link:hover .zarco-footer-logo {
+    opacity: 0.75;
+}
+
+/* Tablet */
+@media (max-width: 991px) {
+    .zarco-footer {
+        margin-top: 25px !important;
+    }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+    .zarco-footer {
+        padding: 8px 10px;
+        gap: 4px;
+    }
+
+    .zarco-footer-text {
+        font-size: 11px;
+    }
+
+    .zarco-footer-logo {
+        width: 75px;
+    }
+}
